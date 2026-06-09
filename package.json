@@ -4,9 +4,16 @@
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
+    "dev:backend": "turbo run dev --filter=@x-clone/api-gateway --filter=@x-clone/auth-service --filter=@x-clone/user-service --filter=@x-clone/social-graph-service --filter=@x-clone/post-service --filter=@x-clone/timeline-service --filter=@x-clone/notification-service --filter=@x-clone/search-service --filter=@x-clone/admin-service --filter=@x-clone/media-service",
+    "dev:clients": "turbo run dev --filter=@x-clone/dashboard --filter=@x-clone/x-clone-app",
     "lint": "turbo run lint",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "check-types": "turbo run check-types"
+    "format": "prettier --write \"**/*.{ts,tsx,js,mjs,json,md}\"",
+    "check-types": "turbo run check-types",
+    "test": "turbo run test",
+    "infra:up": "docker compose up -d",
+    "infra:down": "docker compose down",
+    "infra:reset": "docker compose down -v",
+    "services:docker": "docker compose --profile apps up --build"
   },
   "devDependencies": {
     "prettier": "^3.7.4",
@@ -14,7 +21,7 @@
     "typescript": "5.9.2"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=24"
   },
   "packageManager": "yarn@1.22.22",
   "workspaces": [
