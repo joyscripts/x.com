@@ -27,12 +27,12 @@ export default ({ config }) => ({
           "Allow X to access your location in the background so active engineer jobs can be tracked safely until arrival.",
       },
       googleServicesFile: "./GoogleService-Info.plist",
-      bundleIdentifier: "com.x.clone",
+      bundleIdentifier: "com.x",
       supportsTablet: true,
     },
 
     android: {
-      package: "com.x.clone",
+      package: "com.x",
       googleServicesFile: "./google-services.json",
       predictiveBackGestureEnabled: false,
 
@@ -144,135 +144,66 @@ export default ({ config }) => ({
                 fontFamily: "Inter",
                 fontDefinitions: [
                   {
-                    path: "./assets/fonts/inter/Inter-VariableFont_opsz,wght.ttf",
-                    weight: 200,
-                  },
-                  {
-                    path: "./assets/fonts/inter/Inter-VariableFont_opsz,wght.ttf",
+                    path: "./assets/fonts/inter/Inter_18pt-Light.ttf",
                     weight: 300,
                   },
                   {
-                    path: "./assets/fonts/inter/Inter-VariableFont_opsz,wght.ttf",
+                    path: "./assets/fonts/inter/Inter_18pt-Regular.ttf",
                     weight: 400,
                   },
                   {
-                    path: "./assets/fonts/inter/Inter-VariableFont_opsz,wght.ttf",
+                    path: "./assets/fonts/inter/Inter_18pt-Medium.ttf",
                     weight: 500,
                   },
                   {
-                    path: "./assets/fonts/inter/Inter-VariableFont_opsz,wght.ttf",
+                    path: "./assets/fonts/inter/Inter_18pt-SemiBold.ttf",
                     weight: 600,
                   },
                   {
-                    path: "./assets/fonts/inter/Inter-VariableFont_opsz,wght.ttf",
+                    path: "./assets/fonts/inter/Inter_18pt-Bold.ttf",
                     weight: 700,
                   },
                   {
-                    path: "./assets/fonts/inter/Inter-VariableFont_opsz,wght.ttf",
-                    weight: 800,
-                  },
-                  {
-                    path: "./assets/fonts/inter/Inter-Italic-VariableFont_opsz,wght.ttf",
-                    weight: 200,
-                    style: "italic",
-                  },
-                  {
-                    path: "./assets/fonts/inter/Inter-Italic-VariableFont_opsz,wght.ttf",
-                    weight: 300,
-                    style: "italic",
-                  },
-                  {
-                    path: "./assets/fonts/inter/Inter-Italic-VariableFont_opsz,wght.ttf",
+                    path: "./assets/fonts/inter/Inter_18pt-Italic.ttf",
                     weight: 400,
                     style: "italic",
                   },
                   {
-                    path: "./assets/fonts/inter/Inter-Italic-VariableFont_opsz,wght.ttf",
+                    path: "./assets/fonts/inter/Inter_18pt-MediumItalic.ttf",
                     weight: 500,
                     style: "italic",
                   },
                   {
-                    path: "./assets/fonts/inter/Inter-Italic-VariableFont_opsz,wght.ttf",
+                    path: "./assets/fonts/inter/Inter_18pt-SemiBoldItalic.ttf",
                     weight: 600,
                     style: "italic",
                   },
                   {
-                    path: "./assets/fonts/inter/Inter-Italic-VariableFont_opsz,wght.ttf",
+                    path: "./assets/fonts/inter/Inter_18pt-BoldItalic.ttf",
                     weight: 700,
-                    style: "italic",
-                  },
-                  {
-                    path: "./assets/fonts/inter/Inter-Italic-VariableFont_opsz,wght.ttf",
-                    weight: 800,
                     style: "italic",
                   },
                 ],
               },
+
               {
                 fontFamily: "Roboto",
                 fontDefinitions: [
                   {
-                    path: "./assets/fonts/roboto/Roboto-VariableFont_wdth,wght.ttf",
-                    weight: 200,
-                  },
-                  {
-                    path: "./assets/fonts/roboto/Roboto-VariableFont_wdth,wght.ttf",
+                    path: "./assets/fonts/roboto/Roboto-Light.ttf",
                     weight: 300,
                   },
                   {
-                    path: "./assets/fonts/roboto/Roboto-VariableFont_wdth,wght.ttf",
+                    path: "./assets/fonts/roboto/Roboto-Regular.ttf",
                     weight: 400,
                   },
                   {
-                    path: "./assets/fonts/roboto/Roboto-VariableFont_wdth,wght.ttf",
+                    path: "./assets/fonts/roboto/Roboto-Medium.ttf",
                     weight: 500,
                   },
                   {
-                    path: "./assets/fonts/roboto/Roboto-VariableFont_wdth,wght.ttf",
-                    weight: 600,
-                  },
-                  {
-                    path: "./assets/fonts/roboto/Roboto-VariableFont_wdth,wght.ttf",
+                    path: "./assets/fonts/roboto/Roboto-Bold.ttf",
                     weight: 700,
-                  },
-                  {
-                    path: "./assets/fonts/roboto/Roboto-VariableFont_wdth,wght.ttf",
-                    weight: 800,
-                  },
-                  {
-                    path: "./assets/fonts/roboto/Roboto-Italic-VariableFont_wdth,wght.ttf",
-                    weight: 200,
-                    style: "italic",
-                  },
-                  {
-                    path: "./assets/fonts/roboto/Roboto-Italic-VariableFont_wdth,wght.ttf",
-                    weight: 300,
-                    style: "italic",
-                  },
-                  {
-                    path: "./assets/fonts/roboto/Roboto-Italic-VariableFont_wdth,wght.ttf",
-                    weight: 400,
-                    style: "italic",
-                  },
-                  {
-                    path: "./assets/fonts/roboto/Roboto-Italic-VariableFont_wdth,wght.ttf",
-                    weight: 500,
-                    style: "italic",
-                  },
-                  {
-                    path: "./assets/fonts/roboto/Roboto-Italic-VariableFont_wdth,wght.ttf",
-                    weight: 600,
-                    style: "italic",
-                  },
-                  {
-                    path: "./assets/fonts/roboto/Roboto-Italic-VariableFont_wdth,wght.ttf",
-                    weight: 700,
-                    style: "italic",
-                  },
-                  {
-                    path: "./assets/fonts/roboto/Roboto-Italic-VariableFont_wdth,wght.ttf",
-                    weight: 800,
-                    style: "italic",
                   },
                 ],
               },
