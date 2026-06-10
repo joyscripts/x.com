@@ -1,10 +1,11 @@
-import { useFonts } from "expo-font";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
+import { SystemBars } from "react-native-edge-to-edge";
 import "react-native-reanimated";
 
-import { useColorScheme } from "@/components/useColorScheme";
+import { useColorScheme } from "@/hooks/useColorScheme";
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -20,15 +21,13 @@ export const unstable_settings = {
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
+  const isLoading = false;
+
   useEffect(() => {
-    if (true) {
+    if (isLoading === false) {
       SplashScreen.hideAsync();
     }
   }, []);
-
-  if (!true) {
-    return null;
-  }
 
   return <RootLayoutNav />;
 }
@@ -38,10 +37,12 @@ function RootLayoutNav() {
 
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: "modal" }} />
-      </Stack>
+      <SafeAreaProvider>
+        <SystemBars style="auto" />
+        <Stack>
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        </Stack>
+      </SafeAreaProvider>
     </ThemeProvider>
   );
 }

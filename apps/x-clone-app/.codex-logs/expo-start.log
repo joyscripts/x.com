@@ -1,0 +1,10 @@
+yarn workspace v1.22.22
+yarn run v1.22.22
+$ expo start --port 8082 --clear
+env: load .env
+env: export EXPO_PUBLIC_APP_VARIANT
+Starting project at C:\Users\jisha\Downloads\Code\full-stack\x-clone\apps\x-clone-app
+› Port 8082 is being used by another process
+› Skipping dev server
+info Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command.
+info Visit https://yarnpkg.com/en/docs/cli/workspace for documentation about this command.

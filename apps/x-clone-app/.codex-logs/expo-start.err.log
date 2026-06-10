@@ -1,0 +1,11 @@
+Input is required, but 'npx expo' is in non-interactive mode.
+Required input:
+> Use port 8083 instead?
+error Command failed with exit code 1.
+error Command failed.
+Exit code: 1
+Command: C:\nvm4w\nodejs\node.exe
+Arguments: C:\ProgramData\nvm\v24.11.1\node_modules\yarn\lib\cli.js start --port 8082 --clear
+Directory: C:\Users\jisha\Downloads\Code\full-stack\x-clone\apps\x-clone-app
+Output:
+
