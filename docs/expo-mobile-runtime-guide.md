@@ -5,6 +5,7 @@ This guide explains how to handle:
 - error screens
 - 404 and unmatched routes
 - global JavaScript errors
+- light and dark theme handling
 - splash screen behavior in code
 - splash screen and icon configuration in `app.config.js`
 - how to create splash and icon assets
@@ -15,6 +16,8 @@ This repo's Expo app lives in `apps/x-clone-app`.
 
 - `apps/x-clone-app/app/+not-found.tsx` already provides a custom unmatched-route screen.
 - `apps/x-clone-app/app/_layout.tsx` already uses `expo-splash-screen`.
+- `apps/x-clone-app/app/_layout.tsx` already wires `ThemeProvider` to the current color scheme.
+- `apps/x-clone-app/constants/Colors.ts` is the app-level theme token file.
 - `apps/x-clone-app/app.config.js` already configures:
   - top-level app icon
   - Android adaptive icons
@@ -303,7 +306,231 @@ A good pattern is:
 - log technical details to monitoring
 - include route name, user id, build version, and device info if available
 
-## 3. Splash screen control in code
+## 3. Theme handling in Expo
+
+Expo theme handling is usually a combination of:
+
+1. reading the system color scheme
+2. providing a navigation theme
+3. storing your own app color tokens in one place
+4. rendering components from those tokens
+
+That is also the right mental model for this repo.
+
+### 3.1 How Expo usually handles light and dark mode
+
+At the React Native level, the base signal comes from:
+
+- `useColorScheme()` from `react-native`
+- or `Appearance`
+
+That gives you the current device preference:
+
+- `"light"`
+- `"dark"`
+- sometimes `"unspecified"`
+
+Expo's color-theme guidance is to use `useColorScheme()` so components rerender when the system theme changes.
+
+### 3.2 How Expo Router handles navigator theming
+
+With Expo Router, you do not create the root `NavigationContainer` yourself.
+
+Instead, you set the app navigation theme with `ThemeProvider`.
+
+This is the common pattern:
+
+```tsx
+import { DarkTheme, DefaultTheme, ThemeProvider } from "expo-router";
+import { Stack } from "expo-router";
+import { useColorScheme } from "react-native";
+
+export default function RootLayout() {
+  const colorScheme = useColorScheme();
+
+  return (
+    <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+      <Stack />
+    </ThemeProvider>
+  );
+}
+```
+
+This affects navigator-owned UI such as:
+
+- stack headers
+- tab navigator defaults
+- navigation colors that depend on the React Navigation theme
+
+### 3.3 How this repo currently does it
+
+Your app already follows the right high-level structure:
+
+- `apps/x-clone-app/app/_layout.tsx` reads the scheme with `useColorScheme()`
+- it passes `DarkTheme` or `DefaultTheme` into `ThemeProvider`
+- `apps/x-clone-app/constants/Colors.ts` stores app-specific color tokens
+- `apps/x-clone-app/components/Themed.tsx` reads from `Colors.ts`
+
+That means you currently have two theme layers:
+
+1. navigator theme from Expo Router / React Navigation
+2. app theme tokens from `Colors.ts`
+
+That is normal and recommended.
+
+### 3.4 Why both layers exist
+
+`ThemeProvider` is not a full design system by itself.
+
+It helps navigation components understand whether the app is in light or dark mode, but your own buttons, cards, inputs, dividers, and surfaces still need your own token system.
+
+So the usual split is:
+
+- `ThemeProvider`: navigator-level theming
+- `Colors.ts`: app-level visual tokens
+
+### 3.5 A good repo pattern
+
+A clean Expo app usually keeps theming in these layers:
+
+1. `useColorScheme()` or a wrapped hook for the current mode
+2. `ThemeProvider` for navigation
+3. `Colors.ts` for semantic tokens
+4. helper components or hooks that map tokens into styles
+
+That is almost exactly what you have now.
+
+### 3.6 Recommended token style
+
+Do not think only in terms of raw colors like:
+
+- `blue`
+- `black`
+- `gray`
+
+Prefer semantic names like:
+
+- `background`
+- `text`
+- `secondaryText`
+- `border`
+- `surface`
+- `card`
+- `danger`
+
+That makes redesigns much easier because components ask for purpose, not pigment.
+
+### 3.7 Example theme token file
+
+This is the kind of shape you want:
+
+```ts
+const Colors = {
+  light: {
+    text: "#0F1419",
+    background: "#FFFFFF",
+    tint: "#1D9BF0",
+    secondaryText: "#536471",
+    border: "#EFF3F4",
+    surface: "#F7F9F9",
+  },
+  dark: {
+    text: "#E7E9EA",
+    background: "#000000",
+    tint: "#1D9BF0",
+    secondaryText: "#71767B",
+    border: "#2F3336",
+    surface: "#16181C",
+  },
+} as const;
+
+export default Colors;
+```
+
+### 3.8 Example themed component usage
+
+Once tokens exist, components should read from them instead of hardcoding hex values:
+
+```tsx
+import { Text as RNText, View as RNView } from "react-native";
+import Colors from "@/constants/Colors";
+import { useColorScheme } from "@/hooks/useColorScheme";
+
+export function Card({ children }: { children: React.ReactNode }) {
+  const theme = useColorScheme();
+
+  return (
+    <RNView
+      style={{
+        backgroundColor: Colors[theme].surface,
+        borderColor: Colors[theme].border,
+        borderWidth: 1,
+      }}
+    >
+      <RNText style={{ color: Colors[theme].text }}>{children}</RNText>
+    </RNView>
+  );
+}
+```
+
+### 3.9 What belongs in `app.config.js` for theming
+
+`app.config.js` can influence theme behavior too.
+
+In particular:
+
+```js
+userInterfaceStyle: "automatic";
+```
+
+This tells the app to follow the device appearance by default.
+
+Other options:
+
+- `"automatic"`: follow system setting
+- `"light"`: force light mode
+- `"dark"`: force dark mode
+
+For most apps, `"automatic"` is the right choice.
+
+### 3.10 When to force a theme manually
+
+You might want a custom theme toggle later.
+
+If so, the common approach is:
+
+1. read the system theme as the default
+2. store an optional user override in local storage
+3. compute the effective theme
+4. feed that into both `ThemeProvider` and your token lookups
+
+The effective theme logic usually looks like:
+
+- no override: follow system
+- override `"light"`: force light
+- override `"dark"`: force dark
+
+### 3.11 Web note
+
+In this repo, `apps/x-clone-app/hooks/useColorScheme.web.ts` currently returns `"light"` on web.
+
+That means:
+
+- the web build is intentionally stable for server rendering
+- it will not dynamically switch themes on web yet
+
+That is a valid tradeoff early on, but if you want dark mode on web later, you will need a web-safe strategy that avoids hydration mismatches.
+
+### 3.12 Practical rules
+
+- Use `ThemeProvider` for navigation theming.
+- Use `Colors.ts` for all app colors.
+- Use semantic tokens, not scattered hex values.
+- Keep `userInterfaceStyle: "automatic"` unless there is a clear product reason not to.
+- Prefer one theme hook everywhere.
+- Avoid hardcoding colors inside screens unless it is truly one-off.
+
+## 4. Splash screen control in code
 
 Expo gives you two layers:
 
@@ -413,7 +640,7 @@ Splash screens are easy to misread during development.
 
 Expo's docs recommend testing splash visuals on preview or production-style builds, not only in Expo Go or a development build, because those environments do not fully match the final splash behavior.
 
-## 4. Configuring splash screen, app icon, and favicon in `app.config.js`
+## 5. Configuring splash screen, app icon, and favicon in `app.config.js`
 
 In this repo, `apps/x-clone-app/app.config.js` is the source of truth.
 
@@ -587,7 +814,7 @@ In short:
 - JS code change: usually hot reload or reload is enough
 - native config change: rebuild
 
-## 5. How to create the splash screen and app icon assets
+## 6. How to create the splash screen and app icon assets
 
 ### 5.1 Recommended asset folder layout
 
@@ -692,7 +919,7 @@ Even if the config eventually generates multiple sizes, these source exports are
 - `android-icon-monochrome.png`: 1024x1024
 - `favicon.png`: 48x48 or 64x64, though using a larger source and exporting down is fine
 
-## 6. Recommended setup for this repo
+## 7. Recommended setup for this repo
 
 If you want a clean, maintainable setup for `apps/x-clone-app`, this is the most practical structure:
 
@@ -702,10 +929,13 @@ If you want a clean, maintainable setup for `apps/x-clone-app`, this is the most
 - Use `SuspenseFallback` in layout files for loading states.
 - Use `try/catch` in async button handlers and API actions.
 - Report production errors with a monitoring service.
+- Keep theme detection centralized through one `useColorScheme()` hook.
+- Keep navigation theming in `ThemeProvider`.
+- Keep app colors in `Colors.ts`.
 - Keep splash-blocking startup work minimal.
 - Use a dedicated `splash-icon.png` instead of reusing `icon.png` if you want better splash composition control.
 
-## 7. Quick checklist
+## 8. Quick checklist
 
 ### Error handling
 
@@ -713,6 +943,14 @@ If you want a clean, maintainable setup for `apps/x-clone-app`, this is the most
 - important routes export `ErrorBoundary`
 - async actions use `try/catch`
 - production errors are reported
+
+### Theme handling
+
+- `userInterfaceStyle` is set intentionally
+- one `useColorScheme()` hook is used across the app
+- `ThemeProvider` wraps navigation
+- `Colors.ts` contains semantic light and dark tokens
+- screens avoid hardcoded hex values where possible
 
 ### Splash control
 
@@ -731,7 +969,9 @@ If you want a clean, maintainable setup for `apps/x-clone-app`, this is the most
 ## Official references
 
 - Expo Router error handling: [https://docs.expo.dev/router/error-handling/](https://docs.expo.dev/router/error-handling/)
+- Expo color themes: [https://docs.expo.dev/develop/user-interface/color-themes/](https://docs.expo.dev/develop/user-interface/color-themes/)
 - Expo SplashScreen SDK 56: [https://docs.expo.dev/versions/v56.0.0/sdk/splash-screen/](https://docs.expo.dev/versions/v56.0.0/sdk/splash-screen/)
 - Expo app config SDK 56: [https://docs.expo.dev/versions/v56.0.0/config/app/](https://docs.expo.dev/versions/v56.0.0/config/app/)
 - Expo splash screen and app icon guide: [https://docs.expo.dev/develop/user-interface/splash-screen-and-app-icon/](https://docs.expo.dev/develop/user-interface/splash-screen-and-app-icon/)
+- Expo Router theming note: [https://docs.expo.dev/router/migrate/from-react-navigation/](https://docs.expo.dev/router/migrate/from-react-navigation/)
 - React error boundary behavior: [https://react.dev/reference/react/Component](https://react.dev/reference/react/Component)
