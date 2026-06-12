@@ -16,8 +16,8 @@ export default function TabLayout() {
         tabBarStyle: {
           backgroundColor: Colors[colorScheme].background,
           borderTopColor: Colors[colorScheme].border,
-          paddingTop: 16,
-          marginBottom: 16,
+          minHeight: 60,
+          paddingTop: 10,
         },
         // Disable the static render of the header on web
         // to prevent a hydration error in React Navigation v6.
@@ -47,7 +47,7 @@ export default function TabLayout() {
         options={{
           title: "",
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="search" color={color} size={size} />
+            <Ionicons name="notifications" color={color} size={size} />
           ),
         }}
       />

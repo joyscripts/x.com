@@ -1,12 +1,13 @@
-const xBlue = "#1D9BF0";
+const xBlack = "#000000";
+const xWhite = "#FFFFFF";
 
 const Colors = {
   light: {
     text: "#0F1419",
     background: "#FFFFFF",
-    tint: xBlue,
+    tint: xBlack,
     icon: "#536471",
-    tabIconDefault: "#536471",
+    tabIconDefault: "#333333",
     tabIconSelected: "#0F1419",
     border: "#EFF3F4",
     card: "#FFFFFF",
@@ -23,9 +24,9 @@ const Colors = {
   dark: {
     text: "#E7E9EA",
     background: "#000000",
-    tint: xBlue,
+    tint: xWhite,
     icon: "#71767B",
-    tabIconDefault: "#71767B",
+    tabIconDefault: "hsla(0, 0%, 100%, 0.70)",
     tabIconSelected: "#E7E9EA",
     border: "#2F3336",
     card: "#000000",

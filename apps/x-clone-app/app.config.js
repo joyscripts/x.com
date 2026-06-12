@@ -1,3 +1,6 @@
+const iosGoogleServicesFile = process.env.EXPO_IOS_GOOGLE_SERVICES_FILE;
+const androidGoogleServicesFile = process.env.EXPO_ANDROID_GOOGLE_SERVICES_FILE;
+
 export default ({ config }) => ({
   ...config,
   expo: {
@@ -26,14 +29,14 @@ export default ({ config }) => ({
         NSLocationAlwaysAndWhenInUseUsageDescription:
           "Allow X to access your location in the background so active engineer jobs can be tracked safely until arrival.",
       },
-      googleServicesFile: "./GoogleService-Info.plist",
+      googleServicesFile: iosGoogleServicesFile,
       bundleIdentifier: "com.x",
       supportsTablet: true,
     },
 
     android: {
       package: "com.x",
-      googleServicesFile: "./google-services.json",
+      googleServicesFile: androidGoogleServicesFile,
       predictiveBackGestureEnabled: false,
 
       adaptiveIcon: {

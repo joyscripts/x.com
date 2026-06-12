@@ -15,6 +15,7 @@ This repository is being used to build an X-like social platform with:
 - [System Design](./docs/system-design.md)
 - [Implementation Roadmap](./docs/implementation-roadmap.md)
 - [Dev Workflow](./docs/dev-workflow.md)
+- [Secrets Guide](./docs/secrets.md)
 
 ## Current Repo Base
 
