@@ -4,6 +4,11 @@ const androidGoogleServicesFile = process.env.EXPO_ANDROID_GOOGLE_SERVICES_FILE;
 export default ({ config }) => ({
   ...config,
   expo: {
+    extra: {
+      eas: {
+        projectId: "8af6014f-240a-49a4-a8a6-8b13b07cb4c3",
+      },
+    },
     name: "X",
     slug: "x-clone",
     version: "1.0.0",
