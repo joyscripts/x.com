@@ -1,6 +1,8 @@
 # Expo Mobile Runtime Guide
 
-This guide explains how to handle:
+This is mostly a working note for the Expo app runtime setup.
+
+It explains how to handle:
 
 - error screens
 - 404 and unmatched routes
@@ -10,7 +12,7 @@ This guide explains how to handle:
 - splash screen and icon configuration in `app.config.js`
 - how to create splash and icon assets
 
-This repo's Expo app lives in `apps/x-clone-app`.
+The Expo app in this repo lives in `apps/x-clone-app`.
 
 ## What exists in this repo already
 

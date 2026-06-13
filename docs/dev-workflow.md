@@ -7,6 +7,8 @@
 It does not replace Node, Expo, or Vite.
 It just runs the right script in the right workspace packages.
 
+This file is basically a local reminder for how I want to run the repo without thinking too hard every time.
+
 Examples:
 
 - `yarn dev` runs every workspace `dev` script that has one

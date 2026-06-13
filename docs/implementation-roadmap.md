@@ -2,7 +2,9 @@
 
 ## 1. Purpose
 
-This roadmap is designed for a **microservice-first build** so you can learn:
+This is the build order note for the repo.
+
+The roadmap is still intentionally **microservice-first** because the point is to learn:
 
 - service decomposition
 - service communication

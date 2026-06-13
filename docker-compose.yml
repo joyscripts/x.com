@@ -120,6 +120,8 @@ services:
       HOST: 0.0.0.0
       LOG_LEVEL: info
       DATABASE_URL: postgres://postgres:postgres@postgres:5432/api_gateway
+      INTERNAL_SERVICE_SECRET: dev-internal-service-secret
+      NOTIFICATION_SERVICE_URL: http://notification-service:4006
       REDIS_URL: redis://redis:6379
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
       S3_ENDPOINT: http://minio:9000

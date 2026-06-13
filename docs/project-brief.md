@@ -1,10 +1,13 @@
 # Project Brief
 
-## Purpose
+This is the long-lived project note I want to keep coming back to.
 
-This document captures the long-lived context for this project so future work can continue without repeating the same goals, constraints, and architectural preferences in every session.
+Main reason it exists:
 
-When working on this repository, treat this file as the default reference for product direction, architecture, and learning goals unless a newer decision overrides it.
+- I do not want to restate the same goals, constraints, and architecture preferences every session
+- I want one place that captures the direction of the project
+
+Unless something newer overrides it, this is the default reference for product direction, architecture, and learning goals.
 
 ## Project Summary
 

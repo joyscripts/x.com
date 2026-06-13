@@ -6,7 +6,7 @@ import { SystemBars } from "react-native-edge-to-edge";
 import "react-native-reanimated";
 
 import { useColorScheme } from "@/hooks/useColorScheme";
-import useNotifications from "@/components/use-notifications";
+import useNotifications from "@/hooks/use-notifications";
 
 export {
   // Catch any errors thrown by the Layout component.

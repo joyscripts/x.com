@@ -2,7 +2,9 @@
 
 ## 1. Goal
 
-Build an X-like social platform as a **microservices-based system** for both:
+This is the system design note I am using to keep the architecture straight while the repo grows.
+
+The target is still to build an X-like social platform as a **microservices-based system** for both:
 
 - product delivery
 - hands-on learning of distributed architecture

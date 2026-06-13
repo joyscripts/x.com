@@ -2090,6 +2090,13 @@
   dependencies:
     tslib "^2.4.0"
 
+"@types/amqplib@^0.10.8":
+  version "0.10.8"
+  resolved "https://registry.yarnpkg.com/@types/amqplib/-/amqplib-0.10.8.tgz#23f2945d055e9fd583da672aa5ec0c7350b9e4e6"
+  integrity sha512-vtDp8Pk1wsE/AuQ8/Rgtm6KUZYqcnTgNvEHwzCkX8rL7AGsC6zqAfKAAJhUZXFhM/Pp++tbnUHiam/8vVpPztA==
+  dependencies:
+    "@types/node" "*"
+
 "@types/chai@^5.2.2":
   version "5.2.3"
   resolved "https://registry.npmjs.org/@types/chai/-/chai-5.2.3.tgz"
@@ -2410,6 +2417,11 @@ ajv@^8.0.0, ajv@^8.12.0:
     fast-uri "^3.0.1"
     json-schema-traverse "^1.0.0"
     require-from-string "^2.0.2"
+
+amqplib@^2.0.1:
+  version "2.0.1"
+  resolved "https://registry.yarnpkg.com/amqplib/-/amqplib-2.0.1.tgz#7f14517c1d5f6e8608cf0abf4df817e923eb59b6"
+  integrity sha512-a3P2MgfCf9nzVis12VxWEn0dS6hcqve7dlEAhXDtIWR27BlhtMkILOc+H9aeHjDi6i6r94dYKc2Kx2OFe3avvg==
 
 anser@^1.4.9:
   version "1.4.10"
@@ -3907,6 +3919,11 @@ expo-router@~56.2.9:
     sf-symbols-typescript "^2.1.0"
     shallowequal "^1.1.0"
     vaul "^1.1.2"
+
+expo-secure-store@~56.0.4:
+  version "56.0.4"
+  resolved "https://registry.yarnpkg.com/expo-secure-store/-/expo-secure-store-56.0.4.tgz#5f897b4446c208e4670a71c7d8b1cf1467161dd2"
+  integrity sha512-hjEi/gmpdFFJ9lYbdp3k3p/WchV7Gi0Qt8jt/m/0WJadqQrskafHAlDxbZkII1cN3Yd7zp9Lvkeq3UfGhSwirQ==
 
 expo-server@^56.0.5:
   version "56.0.5"

@@ -2,7 +2,7 @@
 
 ## Goal
 
-Use one simple rule across the monorepo:
+This is the simple rule I want to keep following across the monorepo:
 
 - commit non-sensitive config
 - ignore secret values
