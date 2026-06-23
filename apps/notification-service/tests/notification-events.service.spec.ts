@@ -1,6 +1,26 @@
 import type { NotificationRequestedEvent } from "@repo/contracts";
 import type { DeviceInstallationRepository } from "@/modules/device-installations/device-installations.repository";
+import type {
+  NotificationDeliveriesRepository,
+  RecordDeliveryInput,
+} from "@/modules/notification-deliveries/notification-deliveries.repository";
+import { EmailChannelHandler } from "@/modules/notification-channels/email/email-channel.handler";
+import type {
+  EmailMessage,
+  EmailProvider,
+} from "@/modules/notification-channels/email/email.provider";
+import { InAppChannelHandler } from "@/modules/notification-channels/in-app/in-app-channel.handler";
+import { PushChannelHandler } from "@/modules/notification-channels/push/push-channel.handler";
+import { SmsChannelHandler } from "@/modules/notification-channels/sms/sms-channel.handler";
+import type {
+  SmsMessage,
+  SmsProvider,
+} from "@/modules/notification-channels/sms/sms.provider";
 import { NotificationEventsService } from "@/modules/notification-events/notification-events.service";
+import type {
+  NotificationsRepository,
+  CreateNotificationInput,
+} from "@/modules/notifications/notifications.repository";
 import type {
   PushDeliveryResult,
   PushMessage,
@@ -22,8 +42,133 @@ class FakePushProvider implements PushProvider {
   }
 }
 
+class FakeEmailProvider implements EmailProvider {
+  public readonly sentMessages: EmailMessage[] = [];
+
+  async send(message: EmailMessage) {
+    this.sentMessages.push(message);
+
+    return {
+      acceptedCount: 1,
+    };
+  }
+}
+
+class FakeSmsProvider implements SmsProvider {
+  public readonly sentMessages: SmsMessage[] = [];
+
+  async send(message: SmsMessage) {
+    this.sentMessages.push(message);
+
+    return {
+      acceptedCount: 1,
+    };
+  }
+}
+
+class FakeNotificationsRepository implements NotificationsRepository {
+  public readonly createdNotifications: CreateNotificationInput[] = [];
+
+  async createFromEvent(input: CreateNotificationInput) {
+    this.createdNotifications.push(input);
+
+    return {
+      notificationId: "1bf49483-2be3-4c6f-af77-c08f6955c818",
+      eventId: input.event.eventId,
+      recipientUserId: input.event.recipientUserId,
+      actorUserId: input.event.actorUserId,
+      type: input.event.type,
+      templateKey: input.event.templateKey,
+      entityType: input.event.entityType,
+      entityId: input.event.entityId,
+      title: input.content.title,
+      body: input.content.body,
+      data: input.content.data,
+      readAt: null,
+      createdAt: new Date("2026-01-01T00:00:00.000Z"),
+    };
+  }
+
+  async listByRecipientUserId() {
+    return [];
+  }
+
+  async markRead() {
+    return undefined;
+  }
+}
+
+class FakeNotificationDeliveriesRepository implements NotificationDeliveriesRepository {
+  public readonly recordedDeliveries: RecordDeliveryInput[] = [];
+
+  async record(input: RecordDeliveryInput) {
+    this.recordedDeliveries.push(input);
+
+    return {
+      deliveryId: "2bf49483-2be3-4c6f-af77-c08f6955c818",
+      eventId: input.event.eventId,
+      notificationId: input.notificationId ?? null,
+      recipientUserId: input.event.recipientUserId,
+      channel: input.channel,
+      provider: input.provider,
+      status: input.status,
+      detail: input.detail ?? null,
+      attemptedAt: new Date("2026-01-01T00:00:00.000Z"),
+    };
+  }
+}
+
+function createService({
+  deviceInstallationRepository,
+  notificationsRepository = new FakeNotificationsRepository(),
+  deliveriesRepository = new FakeNotificationDeliveriesRepository(),
+  pushProvider = new FakePushProvider(),
+  emailProvider = new FakeEmailProvider(),
+  smsProvider = new FakeSmsProvider(),
+}: {
+  deviceInstallationRepository: Pick<
+    DeviceInstallationRepository,
+    "listInstallationsByUserId"
+  >;
+  notificationsRepository?: NotificationsRepository;
+  deliveriesRepository?: NotificationDeliveriesRepository;
+  pushProvider?: PushProvider;
+  emailProvider?: EmailProvider;
+  smsProvider?: SmsProvider;
+}) {
+  return new NotificationEventsService([
+    new InAppChannelHandler(notificationsRepository, deliveriesRepository),
+    new PushChannelHandler(
+      deviceInstallationRepository,
+      pushProvider,
+      deliveriesRepository,
+    ),
+    new EmailChannelHandler(emailProvider, deliveriesRepository),
+    new SmsChannelHandler(smsProvider, deliveriesRepository),
+  ]);
+}
+
+function createRabbitMqPingEvent(
+  channels: NotificationRequestedEvent["channels"],
+): NotificationRequestedEvent {
+  return {
+    eventId: "6ce19327-d8c1-4d18-9762-6eca50200b2a",
+    type: "rabbitmq.ping",
+    actorUserId: "system",
+    recipientUserId: "test-user",
+    entityType: "system",
+    entityId: "6ce19327-d8c1-4d18-9762-6eca50200b2a",
+    channels,
+    templateKey: "rabbitmq_ping",
+    data: {
+      message: "hello from test",
+    },
+    occurredAt: "2026-06-13T10:00:00.000Z",
+  };
+}
+
 describe("notification events service", () => {
-  it("sends push notifications to fcm installations for the recipient", async () => {
+  it("fans out one event across in-app, push, email, and sms channels", async () => {
     const deviceInstallationRepository: Pick<
       DeviceInstallationRepository,
       "listInstallationsByUserId"
@@ -49,31 +194,25 @@ describe("notification events service", () => {
       },
     };
     const pushProvider = new FakePushProvider();
-    const service = new NotificationEventsService(
+    const emailProvider = new FakeEmailProvider();
+    const smsProvider = new FakeSmsProvider();
+    const service = createService({
       deviceInstallationRepository,
       pushProvider,
+      emailProvider,
+      smsProvider,
+    });
+
+    const result = await service.handleRequestedEvent(
+      createRabbitMqPingEvent(["in_app", "push", "email", "sms"]),
     );
-
-    const event: NotificationRequestedEvent = {
-      eventId: "6ce19327-d8c1-4d18-9762-6eca50200b2a",
-      type: "rabbitmq.ping",
-      actorUserId: "system",
-      recipientUserId: "test-user",
-      entityType: "system",
-      entityId: "6ce19327-d8c1-4d18-9762-6eca50200b2a",
-      channels: ["push"],
-      templateKey: "rabbitmq_ping",
-      data: {
-        message: "hello from test",
-      },
-      occurredAt: "2026-06-13T10:00:00.000Z",
-    };
-
-    const result = await service.handleRequestedEvent(event);
 
     expect(result).toEqual({
       matchedInstallationCount: 1,
+      inAppNotificationCount: 1,
       pushedInstallationCount: 1,
+      emailedNotificationCount: 1,
+      smsNotificationCount: 1,
     });
     expect(pushProvider.sentMessages).toEqual([
       expect.objectContaining({
@@ -82,42 +221,46 @@ describe("notification events service", () => {
         body: "hello from test",
       }),
     ]);
+    expect(emailProvider.sentMessages).toEqual([
+      expect.objectContaining({
+        toUserId: "test-user",
+        subject: "RabbitMQ ping",
+        body: "hello from test",
+      }),
+    ]);
+    expect(smsProvider.sentMessages).toEqual([
+      expect.objectContaining({
+        toUserId: "test-user",
+        body: "hello from test",
+      }),
+    ]);
   });
 
-  it("skips push delivery when the event does not request push", async () => {
-    const deviceInstallationRepository: Pick<
-      DeviceInstallationRepository,
-      "listInstallationsByUserId"
-    > = {
-      async listInstallationsByUserId() {
-        return [];
-      },
-    };
+  it("stores in-app notifications without attempting push delivery", async () => {
     const pushProvider = new FakePushProvider();
-    const service = new NotificationEventsService(
-      deviceInstallationRepository,
+    const notificationsRepository = new FakeNotificationsRepository();
+    const service = createService({
+      deviceInstallationRepository: {
+        async listInstallationsByUserId() {
+          return [];
+        },
+      },
+      notificationsRepository,
       pushProvider,
+    });
+
+    const result = await service.handleRequestedEvent(
+      createRabbitMqPingEvent(["in_app"]),
     );
-
-    const event: NotificationRequestedEvent = {
-      eventId: "b70fac50-c834-4f5e-970f-a18c533d6480",
-      type: "rabbitmq.ping",
-      actorUserId: "system",
-      recipientUserId: "test-user",
-      entityType: "system",
-      entityId: "b70fac50-c834-4f5e-970f-a18c533d6480",
-      channels: ["in_app"],
-      templateKey: "rabbitmq_ping",
-      data: {},
-      occurredAt: "2026-06-13T10:00:00.000Z",
-    };
-
-    const result = await service.handleRequestedEvent(event);
 
     expect(result).toEqual({
       matchedInstallationCount: 0,
+      inAppNotificationCount: 1,
       pushedInstallationCount: 0,
+      emailedNotificationCount: 0,
+      smsNotificationCount: 0,
     });
+    expect(notificationsRepository.createdNotifications).toHaveLength(1);
     expect(pushProvider.sentMessages).toHaveLength(0);
   });
 });

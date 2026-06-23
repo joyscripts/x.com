@@ -1,8 +1,16 @@
 import { createApp } from "@/app";
 import { env } from "@/config/env";
 import { DrizzleDeviceInstallationRepository } from "@/modules/device-installations/device-installations.repository";
+import { DrizzleNotificationDeliveriesRepository } from "@/modules/notification-deliveries/notification-deliveries.repository";
+import { EmailChannelHandler } from "@/modules/notification-channels/email/email-channel.handler";
+import { LogEmailProvider } from "@/modules/notification-channels/email/log-email.provider";
+import { InAppChannelHandler } from "@/modules/notification-channels/in-app/in-app-channel.handler";
+import { PushChannelHandler } from "@/modules/notification-channels/push/push-channel.handler";
+import { LogSmsProvider } from "@/modules/notification-channels/sms/log-sms.provider";
+import { SmsChannelHandler } from "@/modules/notification-channels/sms/sms-channel.handler";
 import { startNotificationEventsConsumer } from "@/modules/notification-events/notification-events.consumer";
 import { NotificationEventsService } from "@/modules/notification-events/notification-events.service";
+import { DrizzleNotificationsRepository } from "@/modules/notifications/notifications.repository";
 import { FcmPushProvider } from "@/modules/push/fcm-push.provider";
 
 async function bootstrap() {
@@ -17,6 +25,11 @@ async function bootstrap() {
       port: env.PORT,
     });
 
+    const deviceInstallationRepository =
+      new DrizzleDeviceInstallationRepository();
+    const deliveriesRepository = new DrizzleNotificationDeliveriesRepository();
+    const notificationsRepository = new DrizzleNotificationsRepository();
+
     notificationEventsConsumer = await startNotificationEventsConsumer({
       rabbitmqUrl: env.RABBITMQ_URL,
       exchangeName: env.NOTIFICATION_EVENTS_EXCHANGE,
@@ -25,10 +38,22 @@ async function bootstrap() {
         .map((binding) => binding.trim())
         .filter(Boolean),
       logger: app.log,
-      notificationEventsService: new NotificationEventsService(
-        new DrizzleDeviceInstallationRepository(),
-        new FcmPushProvider(),
-      ),
+      notificationEventsService: new NotificationEventsService([
+        new InAppChannelHandler(notificationsRepository, deliveriesRepository),
+        new PushChannelHandler(
+          deviceInstallationRepository,
+          new FcmPushProvider(),
+          deliveriesRepository,
+        ),
+        new EmailChannelHandler(
+          new LogEmailProvider(app.log),
+          deliveriesRepository,
+        ),
+        new SmsChannelHandler(
+          new LogSmsProvider(app.log),
+          deliveriesRepository,
+        ),
+      ]),
     });
 
     const shutdown = async () => {

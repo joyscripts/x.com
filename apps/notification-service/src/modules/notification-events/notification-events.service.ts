@@ -1,11 +1,16 @@
-import type { NotificationRequestedEvent } from "@repo/contracts";
-import type { DeviceInstallationRepository } from "@/modules/device-installations/device-installations.repository";
-import type { PushProvider } from "@/modules/push/push.provider";
-import { renderNotificationEvent } from "@/modules/notification-events/notification-events.templates";
+import type {
+  NotificationChannel,
+  NotificationRequestedEvent,
+} from "@repo/contracts";
+import type { NotificationChannelHandler } from "@/modules/notification-channels/notification-channel.handler";
+import { resolveNotificationEvent } from "@/modules/notification-definitions/notification-definitions.registry";
 
 type HandleNotificationEventResult = {
   matchedInstallationCount: number;
+  inAppNotificationCount: number;
   pushedInstallationCount: number;
+  emailedNotificationCount: number;
+  smsNotificationCount: number;
 };
 
 export interface NotificationEventsServicePort {
@@ -15,62 +20,72 @@ export interface NotificationEventsServicePort {
 }
 
 export class NotificationEventsService implements NotificationEventsServicePort {
-  constructor(
-    private readonly deviceInstallationRepository: Pick<
-      DeviceInstallationRepository,
-      "listInstallationsByUserId"
-    >,
-    private readonly pushProvider: PushProvider,
-  ) {}
+  private readonly channelHandlers: Map<
+    NotificationChannel,
+    NotificationChannelHandler
+  >;
+
+  constructor(channelHandlers: NotificationChannelHandler[]) {
+    this.channelHandlers = new Map(
+      channelHandlers.map((handler) => [handler.channel, handler]),
+    );
+  }
 
   async handleRequestedEvent(
     event: NotificationRequestedEvent,
   ): Promise<HandleNotificationEventResult> {
-    const installations =
-      await this.deviceInstallationRepository.listInstallationsByUserId(
-        event.recipientUserId,
-      );
+    const content = resolveNotificationEvent(event);
+    let notificationId: string | undefined;
+    const result: HandleNotificationEventResult = {
+      matchedInstallationCount: 0,
+      inAppNotificationCount: 0,
+      pushedInstallationCount: 0,
+      emailedNotificationCount: 0,
+      smsNotificationCount: 0,
+    };
 
-    if (!event.channels.includes("push")) {
-      return {
-        matchedInstallationCount: installations.length,
-        pushedInstallationCount: 0,
-      };
-    }
-
-    const fcmInstallations = installations.filter(
-      (installation) => installation.pushProvider === "fcm",
+    const requestedChannels = [
+      "in_app",
+      ...event.channels.filter((channel) => channel !== "in_app"),
+    ].filter(
+      (channel, index, channels): channel is NotificationChannel =>
+        event.channels.includes(channel as NotificationChannel) &&
+        channels.indexOf(channel) === index,
     );
 
-    if (fcmInstallations.length === 0) {
-      return {
-        matchedInstallationCount: installations.length,
-        pushedInstallationCount: 0,
-      };
+    for (const channel of requestedChannels) {
+      const handler = this.channelHandlers.get(channel);
+
+      if (!handler) {
+        continue;
+      }
+
+      const channelResult = await handler.handle({
+        event,
+        content,
+        notificationId,
+      });
+
+      notificationId = channelResult.notificationId ?? notificationId;
+      result.matchedInstallationCount += channelResult.matchedTargetCount ?? 0;
+
+      if (channel === "in_app") {
+        result.inAppNotificationCount += channelResult.deliveredCount;
+      }
+
+      if (channel === "push") {
+        result.pushedInstallationCount += channelResult.deliveredCount;
+      }
+
+      if (channel === "email") {
+        result.emailedNotificationCount += channelResult.deliveredCount;
+      }
+
+      if (channel === "sms") {
+        result.smsNotificationCount += channelResult.deliveredCount;
+      }
     }
 
-    const renderedNotification = renderNotificationEvent(event);
-    const pushMessages = fcmInstallations.map((installation) => ({
-      to: installation.deviceToken,
-      title: renderedNotification.title,
-      body: renderedNotification.body,
-      data: {
-        ...event.data,
-        eventId: event.eventId,
-        type: event.type,
-        templateKey: event.templateKey,
-        entityType: event.entityType,
-        entityId: event.entityId,
-        actorUserId: event.actorUserId,
-        recipientUserId: event.recipientUserId,
-      },
-    }));
-
-    const deliveryResult = await this.pushProvider.send(pushMessages);
-
-    return {
-      matchedInstallationCount: installations.length,
-      pushedInstallationCount: deliveryResult.acceptedCount,
-    };
+    return result;
   }
 }

@@ -8,9 +8,17 @@ import {
   type DeviceInstallationServicePort,
 } from "@/modules/device-installations/device-installations.service";
 import { registerHealthRoutes } from "@/modules/health/health.routes";
+import { requireInternalServiceSecret } from "@/modules/internal-auth/internal-auth.hook";
+import { DrizzleNotificationsRepository } from "@/modules/notifications/notifications.repository";
+import { registerNotificationRoutes } from "@/modules/notifications/notifications.routes";
+import {
+  NotificationsService,
+  type NotificationsServicePort,
+} from "@/modules/notifications/notifications.service";
 
 type CreateAppOptions = {
   deviceInstallationService?: DeviceInstallationServicePort;
+  notificationsService?: NotificationsServicePort;
 };
 
 export function createApp(options: CreateAppOptions = {}) {
@@ -32,13 +40,18 @@ export function createApp(options: CreateAppOptions = {}) {
   void app.register(cors, {
     origin: true,
   });
+  app.addHook("preHandler", requireInternalServiceSecret);
 
   const deviceInstallationService =
     options.deviceInstallationService ??
     new DeviceInstallationService(new DrizzleDeviceInstallationRepository());
+  const notificationsService =
+    options.notificationsService ??
+    new NotificationsService(new DrizzleNotificationsRepository());
 
   void registerHealthRoutes(app);
   void registerDeviceInstallationRoutes(app, deviceInstallationService);
+  void registerNotificationRoutes(app, notificationsService);
 
   return app;
 }

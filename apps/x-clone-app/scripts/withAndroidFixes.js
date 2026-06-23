@@ -1,4 +1,6 @@
 const {
+  AndroidConfig,
+  withAndroidManifest,
   withProjectBuildGradle,
   withAppBuildGradle,
 } = require("@expo/config-plugins");
@@ -38,6 +40,29 @@ const withCmakeFix = (config) => {
   });
 };
 
+const withFirebaseMessagingManifestFix = (config) => {
+  return withAndroidManifest(config, (config) => {
+    const mainApplication = AndroidConfig.Manifest.getMainApplicationOrThrow(
+      config.modResults,
+    );
+
+    for (const metaData of mainApplication["meta-data"] ?? []) {
+      if (
+        metaData.$["android:name"] ===
+          "com.google.firebase.messaging.default_notification_color" ||
+        metaData.$["android:name"] ===
+          "com.google.firebase.messaging.default_notification_icon"
+      ) {
+        metaData.$["tools:replace"] = "android:resource";
+      }
+    }
+
+    return config;
+  });
+};
+
 module.exports = (config) => {
-  return withNotifeeMaven(withCmakeFix(config));
+  return withFirebaseMessagingManifestFix(
+    withNotifeeMaven(withCmakeFix(config)),
+  );
 };

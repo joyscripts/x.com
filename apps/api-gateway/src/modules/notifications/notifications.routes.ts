@@ -14,4 +14,9 @@ export async function registerNotificationRoutes(
     "/notifications/device-installations",
     controller.registerDeviceInstallation,
   );
+  app.get("/notifications", controller.listInAppNotifications);
+  app.post(
+    "/notifications/:notificationId/read",
+    controller.markInAppNotificationRead,
+  );
 }
