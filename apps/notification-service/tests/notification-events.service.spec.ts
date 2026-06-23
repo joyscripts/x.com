@@ -10,6 +10,11 @@ import type {
   EmailProvider,
 } from "@/modules/notification-channels/email/email.provider";
 import { InAppChannelHandler } from "@/modules/notification-channels/in-app/in-app-channel.handler";
+import type {
+  PushDeliveryResult,
+  PushMessage,
+  PushProvider,
+} from "@/modules/notification-channels/push/push.provider";
 import { PushChannelHandler } from "@/modules/notification-channels/push/push-channel.handler";
 import { SmsChannelHandler } from "@/modules/notification-channels/sms/sms-channel.handler";
 import type {
@@ -21,12 +26,6 @@ import type {
   NotificationsRepository,
   CreateNotificationInput,
 } from "@/modules/notifications/notifications.repository";
-import type {
-  PushDeliveryResult,
-  PushMessage,
-  PushProvider,
-} from "@/modules/push/push.provider";
-
 class FakePushProvider implements PushProvider {
   public readonly sentMessages: PushMessage[] = [];
 

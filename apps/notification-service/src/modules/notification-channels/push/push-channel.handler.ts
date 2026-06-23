@@ -1,7 +1,7 @@
 import type { DeviceInstallationRepository } from "@/modules/device-installations/device-installations.repository";
 import type { NotificationChannelHandler } from "@/modules/notification-channels/notification-channel.handler";
+import type { PushProvider } from "@/modules/notification-channels/push/push.provider";
 import type { NotificationDeliveriesRepository } from "@/modules/notification-deliveries/notification-deliveries.repository";
-import type { PushProvider } from "@/modules/push/push.provider";
 
 export class PushChannelHandler implements NotificationChannelHandler {
   readonly channel = "push" as const;

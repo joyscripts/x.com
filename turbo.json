@@ -2,6 +2,9 @@
   "$schema": "https://turborepo.dev/schema.json",
   "ui": "tui",
   "concurrency": "20",
+  "globalEnv": [
+    "TEST_NOTIFICATION_RECIPIENT_USER_ID"
+  ],
   "tasks": {
     "build": {
       "dependsOn": [

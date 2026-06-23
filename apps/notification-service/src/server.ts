@@ -5,13 +5,13 @@ import { DrizzleNotificationDeliveriesRepository } from "@/modules/notification-
 import { EmailChannelHandler } from "@/modules/notification-channels/email/email-channel.handler";
 import { LogEmailProvider } from "@/modules/notification-channels/email/log-email.provider";
 import { InAppChannelHandler } from "@/modules/notification-channels/in-app/in-app-channel.handler";
+import { FcmPushProvider } from "@/modules/notification-channels/push/fcm-push.provider";
 import { PushChannelHandler } from "@/modules/notification-channels/push/push-channel.handler";
 import { LogSmsProvider } from "@/modules/notification-channels/sms/log-sms.provider";
 import { SmsChannelHandler } from "@/modules/notification-channels/sms/sms-channel.handler";
 import { startNotificationEventsConsumer } from "@/modules/notification-events/notification-events.consumer";
 import { NotificationEventsService } from "@/modules/notification-events/notification-events.service";
 import { DrizzleNotificationsRepository } from "@/modules/notifications/notifications.repository";
-import { FcmPushProvider } from "@/modules/push/fcm-push.provider";
 
 async function bootstrap() {
   const app = createApp();

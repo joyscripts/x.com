@@ -2,6 +2,7 @@ import type {
   RegisterDeviceInstallationRequest,
   RegisterDeviceInstallationResponse,
 } from "@repo/contracts";
+import { toRegisteredDeviceInstallationDto } from "@/modules/device-installations/device-installations.mapper";
 import type { DeviceInstallationRepository } from "@/modules/device-installations/device-installations.repository";
 
 export interface DeviceInstallationServicePort {
@@ -24,21 +25,7 @@ export class DeviceInstallationService
 
     return {
       status: "registered",
-      installation: {
-        installationId: installation.installationId,
-        userId: installation.userId,
-        platform: input.platform,
-        pushProvider: input.pushProvider,
-        deviceToken: installation.deviceToken,
-        appVariant: installation.appVariant,
-        appVersion: installation.appVersion,
-        deviceName: installation.deviceName,
-        deviceModel: installation.deviceModel,
-        osVersion: installation.osVersion,
-        createdAt: installation.createdAt.toISOString(),
-        updatedAt: installation.updatedAt.toISOString(),
-        lastRegisteredAt: installation.lastRegisteredAt.toISOString(),
-      },
+      installation: toRegisteredDeviceInstallationDto(installation),
     };
   }
 }

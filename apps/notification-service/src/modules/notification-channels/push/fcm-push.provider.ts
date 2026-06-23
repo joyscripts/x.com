@@ -16,7 +16,7 @@ import type {
   PushDeliveryResult,
   PushMessage,
   PushProvider,
-} from "@/modules/push/push.provider";
+} from "@/modules/notification-channels/push/push.provider";
 
 const FIREBASE_APP_NAME = "notification-service-fcm";
 

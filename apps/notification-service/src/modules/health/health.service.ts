@@ -1,8 +1,8 @@
-import type { HealthResponseDto } from "@/modules/health/dtos/health-response.dto";
+import type { HealthResponse } from "@repo/contracts";
 import { env } from "@/config/env";
 
 export class HealthService {
-  getStatus(): HealthResponseDto {
+  getStatus(): HealthResponse {
     return {
       status: "ok",
       metadata: {
