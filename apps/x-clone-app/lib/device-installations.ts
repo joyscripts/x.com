@@ -10,7 +10,7 @@ import { postJson } from "@/lib/api";
 const PUSH_INSTALLATION_ID_KEY = "push_installation_id";
 
 export type AppPushToken = {
-  type: "expo";
+  type: "fcm";
   data: string;
 };
 
@@ -50,7 +50,7 @@ export async function createInstallationRegistrationPayload(
     installationId: await getPushInstallationId(),
     userId: process.env.EXPO_PUBLIC_NOTIFICATION_TEST_USER_ID ?? undefined,
     platform: Platform.OS === "ios" ? "ios" : "android",
-    pushProvider: "expo",
+    pushProvider: "fcm",
     deviceToken: token.data,
     appVariant: process.env.EXPO_PUBLIC_APP_VARIANT ?? "development",
     appVersion:

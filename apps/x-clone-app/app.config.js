@@ -68,6 +68,8 @@ export default ({ config }) => ({
 
     plugins: [
       "expo-router",
+      "@react-native-firebase/app",
+      "@react-native-firebase/messaging",
       "./scripts/withAndroidFixes.js",
 
       [

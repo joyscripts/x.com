@@ -2,20 +2,28 @@ import type { NotificationRequestedEvent } from "@repo/contracts";
 import type { DeviceInstallationRepository } from "@/modules/device-installations/device-installations.repository";
 import { NotificationEventsService } from "@/modules/notification-events/notification-events.service";
 import type {
+  PushDeliveryResult,
   PushMessage,
   PushProvider,
-} from "@/modules/push/expo-push.provider";
+} from "@/modules/push/push.provider";
 
 class FakePushProvider implements PushProvider {
   public readonly sentMessages: PushMessage[] = [];
 
   async send(messages: PushMessage[]) {
     this.sentMessages.push(...messages);
+
+    const result: PushDeliveryResult = {
+      acceptedCount: messages.length,
+      rejectedTokens: [],
+    };
+
+    return result;
   }
 }
 
 describe("notification events service", () => {
-  it("sends push notifications to expo installations for the recipient", async () => {
+  it("sends push notifications to fcm installations for the recipient", async () => {
     const deviceInstallationRepository: Pick<
       DeviceInstallationRepository,
       "listInstallationsByUserId"
@@ -26,8 +34,8 @@ describe("notification events service", () => {
             installationId: "inst-1",
             userId: "test-user",
             platform: "android",
-            pushProvider: "expo",
-            deviceToken: "ExponentPushToken[test-token]",
+            pushProvider: "fcm",
+            deviceToken: "fcm-token-123",
             appVariant: "development",
             appVersion: "1.0.0",
             deviceName: "Pixel",
@@ -69,7 +77,7 @@ describe("notification events service", () => {
     });
     expect(pushProvider.sentMessages).toEqual([
       expect.objectContaining({
-        to: "ExponentPushToken[test-token]",
+        to: "fcm-token-123",
         title: "RabbitMQ ping",
         body: "hello from test",
       }),

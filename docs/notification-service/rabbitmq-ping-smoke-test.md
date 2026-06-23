@@ -4,7 +4,7 @@ This is the smallest end-to-end test I want working before I pile on real notifi
 
 If this works, I know:
 
-- the app can register a push token
+- the app can register an FCM token
 - the notification service can look up the right device
 - RabbitMQ wiring is good
 - the service can consume an event and send a push
@@ -13,24 +13,24 @@ If this works, I know:
 
 Flow:
 
-1. mobile app gets an Expo push token
+1. mobile app gets an FCM token
 2. mobile app calls `POST /notifications/device-installations` on the API gateway
 3. API gateway forwards the request to notification-service
 4. notification service stores the token under a test user id
 5. I publish `rabbitmq.ping` to RabbitMQ
 6. notification service consumes the event
-7. notification service sends a push through Expo
+7. notification service sends a push through FCM
 8. device receives the notification
 
 ## Before doing anything
 
-The current setup is aimed at Expo Push, not direct FCM/APNs.
+The current setup is aimed at direct FCM delivery.
 
 That means:
 
-- the app needs an `ExpoPushToken`
+- the app needs an FCM registration token
 - the device needs to be able to receive push notifications
-- the notification service sends to Expo Push API
+- the notification service sends through Firebase Admin to FCM
 
 Practical note:
 
@@ -86,6 +86,14 @@ EXPO_ANDROID_GOOGLE_SERVICES_FILE=/absolute/path/to/google-services.json
 If you are using iOS too, make sure your push credentials are configured in the Expo/EAS side before expecting a real remote push to arrive.
 
 I would start with Android first unless iOS credentials are already sorted.
+
+For the backend, make sure the notification service can authenticate to Firebase Admin.
+The simplest local option is:
+
+```sh
+GOOGLE_APPLICATION_CREDENTIALS=/absolute/path/to/firebase-service-account.json
+FIREBASE_PROJECT_ID=your-firebase-project-id
+```
 
 ### 5. Build a dev client
 
@@ -147,12 +155,12 @@ Then open the dev build on the device/emulator.
 On first launch:
 
 - accept notification permission
-- wait for the app to register the Expo push token
+- wait for the app to register the FCM token
 
 If registration worked, the notification service should have a `device_installations` row for:
 
 - `userId = test-user`
-- `pushProvider = expo`
+- `pushProvider = fcm`
 
 ## Publish the test event
 
@@ -208,7 +216,7 @@ Check:
 - `EXPO_PUBLIC_API_GATEWAY_URL`
 - the app and service can reach each other on the network
 - notification permission was granted
-- the app actually produced an Expo push token
+- the app actually produced an FCM token
 
 ### Case 2: event is published but nothing is consumed
 
@@ -228,16 +236,16 @@ Useful local UI:
 
 Check:
 
-- the stored installation row uses `pushProvider = expo`
+- the stored installation row uses `pushProvider = fcm`
 - the `recipientUserId` on the event matches the stored `userId`
-- the stored token looks like `ExponentPushToken[...]` or `ExpoPushToken[...]`
+- the stored token looks like an FCM registration token
 
-### Case 4: Expo rejects the push
+### Case 4: FCM rejects the push
 
 This usually means one of these:
 
 - token is stale
-- app credentials are not set up correctly yet
+- Firebase credentials or Apple push credentials are not set up correctly yet
 - the build on device does not match the push setup
 
 In that case I would re-register the app, confirm the token changed, and try the ping again.

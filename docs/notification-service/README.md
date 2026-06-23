@@ -4,7 +4,7 @@ These are my working notes for the notification service so I do not have to keep
 
 Right now the goal is not "build the whole notifications product". The goal is to get the first clean loop working:
 
-- mobile registers a push token through `api-gateway`
+- mobile registers an FCM token through `api-gateway`
 - `notification-service` listens to RabbitMQ
 - a `rabbitmq.ping` event lands in the queue
 - `notification-service` turns that into a push
@@ -77,7 +77,7 @@ That keeps the first test close to the real architecture instead of inventing a 
 
 Minimal flow that now exists:
 
-- mobile app registers an Expo push token instead of a native APNs/FCM token
+- mobile app registers an FCM token instead of an Expo push token
 - mobile app sends registration to `api-gateway`
 - `api-gateway` forwards it to `notification-service`
 - `notification-service` stores that token in `device_installations`
@@ -85,7 +85,7 @@ Minimal flow that now exists:
 - consumer listens on `notification.events`
 - queue bindings default to `rabbitmq.ping,notification.requested`
 - `rabbitmq.ping` is rendered into a simple push title/body
-- push goes through Expo Push API
+- push goes through Firebase Admin and FCM
 
 Important detail:
 
@@ -100,7 +100,7 @@ Important detail:
 - delivery records
 - retries and DLQ handling
 - preference checks
-- provider fanout beyond Expo push
+- provider fanout beyond FCM
 
 I do not want to mix all of that into the first queue-to-device test.
 
@@ -109,7 +109,7 @@ I do not want to mix all of that into the first queue-to-device test.
 - `packages/contracts/src/index.ts`
 - `apps/notification-service/src/server.ts`
 - `apps/notification-service/src/modules/notification-events/`
-- `apps/notification-service/src/modules/push/expo-push.provider.ts`
+- `apps/notification-service/src/modules/push/fcm-push.provider.ts`
 - `apps/x-clone-app/hooks/use-device-push-token.ts`
 - `apps/x-clone-app/lib/device-installations.ts`
 

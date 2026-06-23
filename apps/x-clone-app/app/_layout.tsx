@@ -7,6 +7,7 @@ import "react-native-reanimated";
 
 import { useColorScheme } from "@/hooks/useColorScheme";
 import useNotifications from "@/hooks/use-notifications";
+import { getFirebaseMessaging } from "@/lib/firebase-messaging";
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -20,6 +21,8 @@ export const unstable_settings = {
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
+
+getFirebaseMessaging()?.setBackgroundMessageHandler(async () => undefined);
 
 export default function RootLayout() {
   const isLoading = false;

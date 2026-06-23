@@ -1,9 +1,9 @@
 import Colors from "@/constants/Colors";
-import Constants from "expo-constants";
 import * as Notifications from "expo-notifications";
 import { useEffect, useState } from "react";
 import { Platform } from "react-native";
 import type { AppPushToken } from "@/lib/device-installations";
+import { getFirebaseMessaging } from "@/lib/firebase-messaging";
 
 type UseDevicePushTokenOptions = {
   enabled: boolean;
@@ -12,8 +12,9 @@ type UseDevicePushTokenOptions = {
 export default function useDevicePushToken({
   enabled,
 }: UseDevicePushTokenOptions) {
-  const [devicePushToken, setDevicePushToken] =
-    useState<AppPushToken | null>(null);
+  const [devicePushToken, setDevicePushToken] = useState<AppPushToken | null>(
+    null,
+  );
   const [error, setError] = useState<Error | null>(null);
   const [isLoading, setIsLoading] = useState(enabled && Platform.OS !== "web");
 
@@ -24,6 +25,7 @@ export default function useDevicePushToken({
     }
 
     let isMounted = true;
+    const firebaseMessaging = getFirebaseMessaging();
 
     async function loadToken() {
       try {
@@ -36,22 +38,20 @@ export default function useDevicePushToken({
           });
         }
 
-        const projectId =
-          Constants.expoConfig?.extra?.eas?.projectId ??
-          Constants.easConfig?.projectId;
-
-        if (!projectId) {
-          throw new Error("Expo projectId is missing for push registration");
+        if (!firebaseMessaging) {
+          throw new Error("Firebase messaging is unavailable on this platform");
         }
 
-        const token = await Notifications.getExpoPushTokenAsync({
-          projectId,
-        });
+        if (!firebaseMessaging.isDeviceRegisteredForRemoteMessages) {
+          await firebaseMessaging.registerDeviceForRemoteMessages();
+        }
+
+        const token = await firebaseMessaging.getToken();
 
         if (isMounted) {
           setDevicePushToken({
-            type: "expo",
-            data: token.data,
+            type: "fcm",
+            data: token,
           });
         }
       } catch (caughtError) {
@@ -59,7 +59,7 @@ export default function useDevicePushToken({
           setError(
             caughtError instanceof Error
               ? caughtError
-              : new Error("Failed to get Expo push token"),
+              : new Error("Failed to get FCM token"),
           );
         }
       } finally {
@@ -71,8 +71,22 @@ export default function useDevicePushToken({
 
     void loadToken();
 
+    const unsubscribeTokenRefresh = firebaseMessaging
+      ? firebaseMessaging.onTokenRefresh((token: string) => {
+          if (!isMounted) {
+            return;
+          }
+
+          setDevicePushToken({
+            type: "fcm",
+            data: token,
+          });
+        })
+      : () => undefined;
+
     return () => {
       isMounted = false;
+      unsubscribeTokenRefresh();
     };
   }, [enabled]);
 

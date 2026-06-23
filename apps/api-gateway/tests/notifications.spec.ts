@@ -5,9 +5,7 @@ import type {
 import { createApp } from "@/app";
 import type { NotificationRegistrationServicePort } from "@/modules/notifications/notifications.service";
 
-class FakeNotificationRegistrationService
-  implements NotificationRegistrationServicePort
-{
+class FakeNotificationRegistrationService implements NotificationRegistrationServicePort {
   async registerDeviceInstallation(
     input: RegisterDeviceInstallationRequest,
   ): Promise<RegisterDeviceInstallationResponse> {
@@ -35,7 +33,8 @@ class FakeNotificationRegistrationService
 describe("notification routes", () => {
   it("forwards device installation registration through the gateway", async () => {
     const app = createApp({
-      notificationRegistrationService: new FakeNotificationRegistrationService(),
+      notificationRegistrationService:
+        new FakeNotificationRegistrationService(),
     });
 
     const response = await app.inject({
@@ -45,8 +44,8 @@ describe("notification routes", () => {
         installationId: "1bf49483-2be3-4c6f-af77-c08f6955c818",
         userId: "test-user",
         platform: "android",
-        pushProvider: "expo",
-        deviceToken: "ExponentPushToken[test-token]",
+        pushProvider: "fcm",
+        deviceToken: "fcm-token-123",
         appVariant: "development",
       },
     });
@@ -57,14 +56,15 @@ describe("notification routes", () => {
       installation: {
         installationId: "1bf49483-2be3-4c6f-af77-c08f6955c818",
         userId: "test-user",
-        pushProvider: "expo",
+        pushProvider: "fcm",
       },
     });
   });
 
   it("rejects invalid device installation payloads", async () => {
     const app = createApp({
-      notificationRegistrationService: new FakeNotificationRegistrationService(),
+      notificationRegistrationService:
+        new FakeNotificationRegistrationService(),
     });
 
     const response = await app.inject({

@@ -3,7 +3,7 @@ import { env } from "@/config/env";
 import { DrizzleDeviceInstallationRepository } from "@/modules/device-installations/device-installations.repository";
 import { startNotificationEventsConsumer } from "@/modules/notification-events/notification-events.consumer";
 import { NotificationEventsService } from "@/modules/notification-events/notification-events.service";
-import { ExpoPushProvider } from "@/modules/push/expo-push.provider";
+import { FcmPushProvider } from "@/modules/push/fcm-push.provider";
 
 async function bootstrap() {
   const app = createApp();
@@ -27,7 +27,7 @@ async function bootstrap() {
       logger: app.log,
       notificationEventsService: new NotificationEventsService(
         new DrizzleDeviceInstallationRepository(),
-        new ExpoPushProvider(env.EXPO_PUSH_API_URL),
+        new FcmPushProvider(),
       ),
     });
 
