@@ -120,6 +120,7 @@ services:
       HOST: 0.0.0.0
       LOG_LEVEL: info
       DATABASE_URL: postgres://postgres:postgres@postgres:5432/api_gateway
+      AUTH_SERVICE_URL: http://auth-service:4001
       INTERNAL_SERVICE_SECRET: dev-internal-service-secret
       NOTIFICATION_SERVICE_URL: http://notification-service:4006
       REDIS_URL: redis://redis:6379

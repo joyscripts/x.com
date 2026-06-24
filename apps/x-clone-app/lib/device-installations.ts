@@ -6,6 +6,7 @@ import type {
 } from "@repo/contracts";
 import { Platform } from "react-native";
 import { postJson } from "@/lib/api";
+import { getStoredAuthSession } from "@/lib/auth";
 
 const PUSH_INSTALLATION_ID_KEY = "push_installation_id";
 
@@ -46,9 +47,14 @@ export async function getPushInstallationId() {
 export async function createInstallationRegistrationPayload(
   token: AppPushToken,
 ): Promise<RegisterDeviceInstallationRequest> {
+  const session = await getStoredAuthSession();
+
   return {
     installationId: await getPushInstallationId(),
-    userId: process.env.EXPO_PUBLIC_NOTIFICATION_TEST_USER_ID ?? undefined,
+    userId:
+      session?.userId ??
+      process.env.EXPO_PUBLIC_NOTIFICATION_TEST_USER_ID ??
+      undefined,
     platform: Platform.OS === "ios" ? "ios" : "android",
     pushProvider: "fcm",
     deviceToken: token.data,

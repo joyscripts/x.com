@@ -11,7 +11,7 @@ export class ApiError extends Error {
   }
 }
 
-function getApiGatewayUrl() {
+export function getApiGatewayUrl() {
   if (!apiGatewayUrl) {
     throw new ApiError(
       "EXPO_PUBLIC_API_GATEWAY_URL is not defined",
@@ -20,6 +20,24 @@ function getApiGatewayUrl() {
   }
 
   return apiGatewayUrl.replace(/\/$/, "");
+}
+
+export async function parseJsonResponse<TResponse>(
+  response: Response,
+): Promise<TResponse> {
+  const payload = await response
+    .json()
+    .catch(() => undefined as TResponse | undefined);
+
+  if (!response.ok) {
+    throw new ApiError(
+      `API gateway request failed with HTTP ${response.status}`,
+      response.status,
+      payload,
+    );
+  }
+
+  return payload as TResponse;
 }
 
 export async function postJson<TResponse>(
@@ -48,17 +66,5 @@ export async function postJson<TResponse>(
     });
   }
 
-  const payload = await response
-    .json()
-    .catch(() => undefined as TResponse | undefined);
-
-  if (!response.ok) {
-    throw new ApiError(
-      `API gateway request failed with HTTP ${response.status}`,
-      response.status,
-      payload,
-    );
-  }
-
-  return payload as TResponse;
+  return parseJsonResponse<TResponse>(response);
 }

@@ -19,7 +19,7 @@ const envSchema = z.object({
   NOTIFICATION_EVENTS_QUEUE: z.string().default("notification-service.push"),
   NOTIFICATION_EVENTS_BINDINGS: z
     .string()
-    .default("rabbitmq.ping,notification.requested"),
+    .default("rabbitmq.ping,notification.requested,auth.otp.requested"),
   FIREBASE_PROJECT_ID: z.string().optional(),
   FIREBASE_SERVICE_ACCOUNT_JSON: z.string().optional(),
   LOG_LEVEL: z

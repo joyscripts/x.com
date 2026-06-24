@@ -3,14 +3,16 @@ import type {
   NotificationDefinition,
   ResolvedNotification,
 } from "@/modules/notification-definitions/notification-definition";
+import { authOtpDefinition } from "@/modules/notification-definitions/auth-otp.definition";
 import { rabbitmqPingDefinition } from "@/modules/notification-definitions/rabbitmq-ping.definition";
 import { userFollowedDefinition } from "@/modules/notification-definitions/user-followed.definition";
 
 const notificationDefinitions = new Map<string, NotificationDefinition>(
-  [rabbitmqPingDefinition, userFollowedDefinition].map((definition) => [
-    definition.templateKey,
-    definition,
-  ]),
+  [
+    authOtpDefinition,
+    rabbitmqPingDefinition,
+    userFollowedDefinition,
+  ].map((definition) => [definition.templateKey, definition]),
 );
 
 export function resolveNotificationEvent(

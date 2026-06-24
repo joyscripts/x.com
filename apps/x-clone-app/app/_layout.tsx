@@ -1,11 +1,22 @@
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from "expo-router";
+import {
+  DarkTheme,
+  DefaultTheme,
+  Stack,
+  ThemeProvider,
+  usePathname,
+  useRouter,
+} from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
 import { SystemBars } from "react-native-edge-to-edge";
 import "react-native-reanimated";
 
 import { useColorScheme } from "@/hooks/useColorScheme";
+import {
+  AuthSessionProvider,
+  useAuthSession,
+} from "@/hooks/use-auth-session";
 import useNotifications from "@/hooks/use-notifications";
 import { getFirebaseMessaging } from "@/lib/firebase-messaging";
 
@@ -43,11 +54,42 @@ function RootLayoutNav() {
   return (
     <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
       <SafeAreaProvider>
-        <SystemBars style="auto" />
-        <Stack>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        </Stack>
+        <AuthSessionProvider>
+          <SessionGate />
+        </AuthSessionProvider>
       </SafeAreaProvider>
     </ThemeProvider>
+  );
+}
+
+function SessionGate() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const { isAuthenticated, isLoading } = useAuthSession();
+
+  useEffect(() => {
+    if (isLoading) {
+      return;
+    }
+
+    const isAuthRoute = pathname.startsWith("/auth");
+
+    if (!isAuthenticated && !isAuthRoute) {
+      router.replace("/auth" as never);
+    }
+
+    if (isAuthenticated && isAuthRoute) {
+      router.replace("/(tabs)");
+    }
+  }, [isAuthenticated, isLoading, pathname, router]);
+
+  return (
+    <>
+      <SystemBars style="auto" />
+      <Stack>
+        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      </Stack>
+    </>
   );
 }

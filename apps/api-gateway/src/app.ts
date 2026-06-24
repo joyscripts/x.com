@@ -1,6 +1,11 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import { env } from "@/config/env";
+import { registerAuthRoutes } from "@/modules/auth/auth.routes";
+import {
+  HttpAuthGatewayService,
+  type AuthGatewayServicePort,
+} from "@/modules/auth/auth.service";
 import { registerHealthRoutes } from "@/modules/health/health.routes";
 import { registerNotificationRoutes } from "@/modules/notifications/notifications.routes";
 import {
@@ -9,6 +14,7 @@ import {
 } from "@/modules/notifications/notifications.service";
 
 type CreateAppOptions = {
+  authService?: AuthGatewayServicePort;
   notificationRegistrationService?: NotificationRegistrationServicePort;
 };
 
@@ -32,6 +38,12 @@ export function createApp(options: CreateAppOptions = {}) {
     origin: true,
   });
 
+  const authService =
+    options.authService ??
+    new HttpAuthGatewayService(
+      env.AUTH_SERVICE_URL,
+      env.INTERNAL_SERVICE_SECRET,
+    );
   const notificationRegistrationService =
     options.notificationRegistrationService ??
     new HttpNotificationRegistrationService(
@@ -40,6 +52,7 @@ export function createApp(options: CreateAppOptions = {}) {
     );
 
   void registerHealthRoutes(app);
+  void registerAuthRoutes(app, authService);
   void registerNotificationRoutes(app, notificationRegistrationService);
 
   return app;

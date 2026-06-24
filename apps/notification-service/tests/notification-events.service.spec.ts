@@ -167,6 +167,49 @@ function createRabbitMqPingEvent(
 }
 
 describe("notification events service", () => {
+  it("logs auth OTP events through the sms channel", async () => {
+    const smsProvider = new FakeSmsProvider();
+    const service = createService({
+      deviceInstallationRepository: {
+        async listInstallationsByUserId() {
+          return [];
+        },
+      },
+      smsProvider,
+    });
+
+    const result = await service.handleRequestedEvent({
+      eventId: "4ce19327-d8c1-4d18-9762-6eca50200b2a",
+      type: "auth.otp.requested",
+      actorUserId: "auth-service",
+      recipientUserId: "+15551234567",
+      entityType: "auth_otp",
+      entityId: "4ce19327-d8c1-4d18-9762-6eca50200b2a",
+      channels: ["sms"],
+      templateKey: "auth_otp",
+      data: {
+        phoneNumber: "+15551234567",
+        otpType: "signup",
+        otpCode: "123456",
+      },
+      occurredAt: "2026-06-13T10:00:00.000Z",
+    });
+
+    expect(result).toEqual({
+      matchedInstallationCount: 0,
+      inAppNotificationCount: 0,
+      pushedInstallationCount: 0,
+      emailedNotificationCount: 0,
+      smsNotificationCount: 1,
+    });
+    expect(smsProvider.sentMessages).toEqual([
+      expect.objectContaining({
+        toUserId: "+15551234567",
+        body: "Your signup OTP is 123456. It expires in 10 minutes.",
+      }),
+    ]);
+  });
+
   it("fans out one event across in-app, push, email, and sms channels", async () => {
     const deviceInstallationRepository: Pick<
       DeviceInstallationRepository,

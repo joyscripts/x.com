@@ -12,6 +12,7 @@ export class LogSmsProvider implements SmsProvider {
     this.logger.info(
       {
         toUserId: message.toUserId,
+        body: message.body,
         data: message.data,
       },
       "SMS notification would be sent",
