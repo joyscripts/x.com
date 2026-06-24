@@ -5,6 +5,7 @@ import type {
   AuthRequestOtpResponse,
   AuthVerifyOtpRequest,
   AuthVerifyOtpResponse,
+  BootstrapUserResponse,
   OtpType,
 } from "@repo/contracts";
 import { createApp } from "@/app";
@@ -13,6 +14,7 @@ import type { AuthSessionRepository } from "@/modules/auth/auth.repository";
 import { AuthService } from "@/modules/auth/auth.service";
 import type { NotificationEventsPublisher } from "@/modules/auth/notification-events.publisher";
 import type { ConsumeOtpResult, OtpStore } from "@/modules/auth/otp.store";
+import type { UsersClient } from "@/modules/auth/users.client";
 
 class MemoryOtpStore implements OtpStore {
   public readonly records = new Map<string, string>();
@@ -109,6 +111,29 @@ class FakeNotificationEventsPublisher implements NotificationEventsPublisher {
   }
 }
 
+class FakeUsersClient implements UsersClient {
+  public readonly bootstrappedPhoneNumbers: string[] = [];
+
+  async bootstrapUser(input: {
+    phoneNumber: string;
+  }): Promise<BootstrapUserResponse> {
+    this.bootstrappedPhoneNumbers.push(input.phoneNumber);
+
+    return {
+      user: {
+        id: "9a828a4f-7c8a-4b2d-9f8e-3f5a6e8d9c10",
+        phoneNumber: input.phoneNumber,
+        handle: "user_15551234567",
+        displayName: "X user 4567",
+        bio: null,
+        avatarUrl: null,
+        createdAt: "2026-01-01T00:00:00.000Z",
+        updatedAt: "2026-01-01T00:00:00.000Z",
+      },
+    };
+  }
+}
+
 class FakeAuthService {
   async requestOtp(
     input: AuthRequestOtpRequest,
@@ -127,7 +152,7 @@ class FakeAuthService {
     return {
       status: "authenticated",
       session: {
-        userId: "phone_test",
+        userId: "9a828a4f-7c8a-4b2d-9f8e-3f5a6e8d9c10",
         phoneNumber: input.phoneNumber,
         accessToken: "access-token",
         refreshToken: "refresh-token",
@@ -142,7 +167,7 @@ class FakeAuthService {
     return {
       status: "refreshed",
       session: {
-        userId: "phone_test",
+        userId: "9a828a4f-7c8a-4b2d-9f8e-3f5a6e8d9c10",
         phoneNumber: "+15551234567",
         accessToken: "new-access-token",
         refreshToken: "new-refresh-token",
@@ -176,8 +201,14 @@ describe("auth routes", () => {
     const otpStore = new MemoryOtpStore();
     const sessionRepository = new MemoryAuthSessionRepository();
     const publisher = new FakeNotificationEventsPublisher();
+    const usersClient = new FakeUsersClient();
     const app = createApp({
-      authService: new AuthService(otpStore, sessionRepository, publisher),
+      authService: new AuthService(
+        otpStore,
+        sessionRepository,
+        publisher,
+        usersClient,
+      ),
     });
 
     const requestResponse = await app.inject({
@@ -222,18 +253,26 @@ describe("auth routes", () => {
     expect(verifyResponse.json()).toMatchObject({
       status: "authenticated",
       session: {
+        userId: "9a828a4f-7c8a-4b2d-9f8e-3f5a6e8d9c10",
         phoneNumber: "+15551234567",
         tokenType: "Bearer",
       },
     });
+    expect(usersClient.bootstrappedPhoneNumbers).toEqual(["+15551234567"]);
   });
 
   it("refreshes a session with refresh-token rotation", async () => {
     const otpStore = new MemoryOtpStore();
     const sessionRepository = new MemoryAuthSessionRepository();
     const publisher = new FakeNotificationEventsPublisher();
+    const usersClient = new FakeUsersClient();
     const app = createApp({
-      authService: new AuthService(otpStore, sessionRepository, publisher),
+      authService: new AuthService(
+        otpStore,
+        sessionRepository,
+        publisher,
+        usersClient,
+      ),
     });
 
     await app.inject({

@@ -7,6 +7,7 @@ const envSchema = z.object({
   HOST: z.string().default("0.0.0.0"),
   PORT: z.coerce.number().int().positive().default(4002),
   DATABASE_URL: z.string().default("postgres://postgres:postgres@localhost:5432/user_service"),
+  INTERNAL_SERVICE_SECRET: z.string().default("dev-internal-service-secret"),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
 });
 

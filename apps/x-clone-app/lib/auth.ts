@@ -16,6 +16,32 @@ const SESSION_PHONE_NUMBER_KEY = "auth_session_phone_number";
 
 let refreshPromise: Promise<AuthSession | null> | undefined;
 
+const authStorage = {
+  async getItem(key: string) {
+    if (process.env.EXPO_OS === "web") {
+      return globalThis.localStorage?.getItem(key) ?? null;
+    }
+
+    return SecureStore.getItemAsync(key);
+  },
+  async setItem(key: string, value: string) {
+    if (process.env.EXPO_OS === "web") {
+      globalThis.localStorage?.setItem(key, value);
+      return;
+    }
+
+    await SecureStore.setItemAsync(key, value);
+  },
+  async deleteItem(key: string) {
+    if (process.env.EXPO_OS === "web") {
+      globalThis.localStorage?.removeItem(key);
+      return;
+    }
+
+    await SecureStore.deleteItemAsync(key);
+  },
+};
+
 export async function requestAuthOtp(
   payload: AuthRequestOtpRequest,
   signal?: AbortSignal,
@@ -44,27 +70,27 @@ export async function verifyAuthOtp(
 
 export async function saveAuthSession(session: AuthSession) {
   await Promise.all([
-    SecureStore.setItemAsync(ACCESS_TOKEN_KEY, session.accessToken),
-    SecureStore.setItemAsync(REFRESH_TOKEN_KEY, session.refreshToken),
-    SecureStore.setItemAsync(SESSION_USER_ID_KEY, session.userId),
-    SecureStore.setItemAsync(SESSION_PHONE_NUMBER_KEY, session.phoneNumber),
+    authStorage.setItem(ACCESS_TOKEN_KEY, session.accessToken),
+    authStorage.setItem(REFRESH_TOKEN_KEY, session.refreshToken),
+    authStorage.setItem(SESSION_USER_ID_KEY, session.userId),
+    authStorage.setItem(SESSION_PHONE_NUMBER_KEY, session.phoneNumber),
   ]);
 }
 
 export async function getAccessToken() {
-  return SecureStore.getItemAsync(ACCESS_TOKEN_KEY);
+  return authStorage.getItem(ACCESS_TOKEN_KEY);
 }
 
 export async function getRefreshToken() {
-  return SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
+  return authStorage.getItem(REFRESH_TOKEN_KEY);
 }
 
 export async function getStoredAuthSession() {
   const [accessToken, refreshToken, userId, phoneNumber] = await Promise.all([
-    SecureStore.getItemAsync(ACCESS_TOKEN_KEY),
-    SecureStore.getItemAsync(REFRESH_TOKEN_KEY),
-    SecureStore.getItemAsync(SESSION_USER_ID_KEY),
-    SecureStore.getItemAsync(SESSION_PHONE_NUMBER_KEY),
+    authStorage.getItem(ACCESS_TOKEN_KEY),
+    authStorage.getItem(REFRESH_TOKEN_KEY),
+    authStorage.getItem(SESSION_USER_ID_KEY),
+    authStorage.getItem(SESSION_PHONE_NUMBER_KEY),
   ]);
 
   if (!accessToken || !refreshToken || !userId || !phoneNumber) {
@@ -85,10 +111,10 @@ export type StoredAuthSession = Awaited<
 
 export async function clearAuthSession() {
   await Promise.all([
-    SecureStore.deleteItemAsync(ACCESS_TOKEN_KEY),
-    SecureStore.deleteItemAsync(REFRESH_TOKEN_KEY),
-    SecureStore.deleteItemAsync(SESSION_USER_ID_KEY),
-    SecureStore.deleteItemAsync(SESSION_PHONE_NUMBER_KEY),
+    authStorage.deleteItem(ACCESS_TOKEN_KEY),
+    authStorage.deleteItem(REFRESH_TOKEN_KEY),
+    authStorage.deleteItem(SESSION_USER_ID_KEY),
+    authStorage.deleteItem(SESSION_PHONE_NUMBER_KEY),
   ]);
 }
 

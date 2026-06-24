@@ -26,7 +26,7 @@ class FakeAuthGatewayService implements AuthGatewayServicePort {
     return {
       status: "authenticated",
       session: {
-        userId: "phone_test",
+        userId: "9a828a4f-7c8a-4b2d-9f8e-3f5a6e8d9c10",
         phoneNumber: input.phoneNumber,
         accessToken: "access-token",
         refreshToken: "refresh-token",
@@ -41,7 +41,7 @@ class FakeAuthGatewayService implements AuthGatewayServicePort {
     return {
       status: "refreshed",
       session: {
-        userId: "phone_test",
+        userId: "9a828a4f-7c8a-4b2d-9f8e-3f5a6e8d9c10",
         phoneNumber: "+15551234567",
         accessToken: "new-access-token",
         refreshToken: "new-refresh-token",

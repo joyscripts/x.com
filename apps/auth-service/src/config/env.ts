@@ -8,6 +8,7 @@ const envSchema = z.object({
   PORT: z.coerce.number().int().positive().default(4001),
   DATABASE_URL: z.string().default("postgres://postgres:postgres@localhost:5432/auth_service"),
   INTERNAL_SERVICE_SECRET: z.string().default("dev-internal-service-secret"),
+  USER_SERVICE_URL: z.string().default("http://localhost:4002"),
   REDIS_URL: z.string().default("redis://localhost:6379"),
   RABBITMQ_URL: z.string().default("amqp://guest:guest@localhost:5672"),
   NOTIFICATION_EVENTS_EXCHANGE: z.string().default("notification.events"),

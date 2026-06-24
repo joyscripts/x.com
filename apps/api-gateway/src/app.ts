@@ -1,6 +1,7 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 import { env } from "@/config/env";
+import { AccessTokenService } from "@/modules/auth/access-token.service";
 import { registerAuthRoutes } from "@/modules/auth/auth.routes";
 import {
   HttpAuthGatewayService,
@@ -12,10 +13,23 @@ import {
   HttpNotificationRegistrationService,
   type NotificationRegistrationServicePort,
 } from "@/modules/notifications/notifications.service";
+import { registerPostRoutes } from "@/modules/posts/posts.routes";
+import {
+  HttpPostsGatewayService,
+  type PostsGatewayServicePort,
+} from "@/modules/posts/posts.service";
+import { registerUserRoutes } from "@/modules/users/users.routes";
+import {
+  HttpUsersGatewayService,
+  type UsersGatewayServicePort,
+} from "@/modules/users/users.service";
 
 type CreateAppOptions = {
   authService?: AuthGatewayServicePort;
   notificationRegistrationService?: NotificationRegistrationServicePort;
+  accessTokenService?: AccessTokenService;
+  usersService?: UsersGatewayServicePort;
+  postsService?: PostsGatewayServicePort;
 };
 
 export function createApp(options: CreateAppOptions = {}) {
@@ -38,6 +52,8 @@ export function createApp(options: CreateAppOptions = {}) {
     origin: true,
   });
 
+  const accessTokenService =
+    options.accessTokenService ?? new AccessTokenService(env.AUTH_JWT_SECRET);
   const authService =
     options.authService ??
     new HttpAuthGatewayService(
@@ -50,9 +66,23 @@ export function createApp(options: CreateAppOptions = {}) {
       env.NOTIFICATION_SERVICE_URL,
       env.INTERNAL_SERVICE_SECRET,
     );
+  const usersService =
+    options.usersService ??
+    new HttpUsersGatewayService(
+      env.USER_SERVICE_URL,
+      env.INTERNAL_SERVICE_SECRET,
+    );
+  const postsService =
+    options.postsService ??
+    new HttpPostsGatewayService(
+      env.POST_SERVICE_URL,
+      env.INTERNAL_SERVICE_SECRET,
+    );
 
   void registerHealthRoutes(app);
   void registerAuthRoutes(app, authService);
+  void registerUserRoutes(app, accessTokenService, usersService);
+  void registerPostRoutes(app, accessTokenService, postsService);
   void registerNotificationRoutes(app, notificationRegistrationService);
 
   return app;

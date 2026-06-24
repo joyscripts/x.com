@@ -6,6 +6,7 @@ import { registerAuthRoutes } from "@/modules/auth/auth.routes";
 import { AuthService, type AuthServicePort } from "@/modules/auth/auth.service";
 import { RabbitMqNotificationEventsPublisher } from "@/modules/auth/notification-events.publisher";
 import { RedisOtpStore } from "@/modules/auth/otp.store";
+import { HttpUsersClient } from "@/modules/auth/users.client";
 import { registerHealthRoutes } from "@/modules/health/health.routes";
 import { requireInternalServiceSecret } from "@/modules/internal-auth/internal-auth.hook";
 
@@ -43,6 +44,7 @@ export function createApp(options: CreateAppOptions = {}) {
         env.RABBITMQ_URL,
         env.NOTIFICATION_EVENTS_EXCHANGE,
       ),
+      new HttpUsersClient(env.USER_SERVICE_URL, env.INTERNAL_SERVICE_SECRET),
     );
 
   if (!options.authService) {

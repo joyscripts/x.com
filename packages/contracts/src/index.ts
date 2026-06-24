@@ -94,6 +94,124 @@ export type AuthRefreshTokenResponse = z.infer<
   typeof authRefreshTokenResponseSchema
 >;
 
+export const userProfileSchema = z.object({
+  id: z.string().uuid(),
+  phoneNumber: phoneNumberSchema,
+  handle: z.string().min(1),
+  displayName: z.string().min(1),
+  bio: z.string().nullable(),
+  avatarUrl: z.string().url().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+
+export type UserProfile = z.infer<typeof userProfileSchema>;
+
+export const bootstrapUserRequestSchema = z.object({
+  phoneNumber: phoneNumberSchema,
+});
+
+export type BootstrapUserRequest = z.infer<
+  typeof bootstrapUserRequestSchema
+>;
+
+export const bootstrapUserResponseSchema = z.object({
+  user: userProfileSchema,
+});
+
+export type BootstrapUserResponse = z.infer<
+  typeof bootstrapUserResponseSchema
+>;
+
+export const getUserResponseSchema = z.object({
+  user: userProfileSchema,
+});
+
+export type GetUserResponse = z.infer<typeof getUserResponseSchema>;
+
+export const userHandleSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .min(3)
+  .max(15)
+  .regex(/^[a-z0-9_]+$/);
+
+export const updateUserProfileRequestSchema = z.object({
+  handle: userHandleSchema,
+  displayName: z.string().trim().min(1).max(50),
+  bio: z.string().trim().max(160).nullable().optional(),
+  avatarUrl: z.string().url().nullable().optional(),
+});
+
+export type UpdateUserProfileRequest = z.infer<
+  typeof updateUserProfileRequestSchema
+>;
+
+export const updateUserProfileResponseSchema = z.object({
+  user: userProfileSchema,
+});
+
+export type UpdateUserProfileResponse = z.infer<
+  typeof updateUserProfileResponseSchema
+>;
+
+export const postContentSchema = z.string().trim().min(1).max(280);
+
+export const postSchema = z.object({
+  id: z.string().uuid(),
+  authorId: z.string().uuid(),
+  content: postContentSchema,
+  replyToPostId: z.string().uuid().nullable(),
+  repostOfPostId: z.string().uuid().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  deletedAt: z.string().nullable(),
+});
+
+export type Post = z.infer<typeof postSchema>;
+
+export const createPostRequestSchema = z.object({
+  content: postContentSchema,
+  replyToPostId: z.string().uuid().nullable().optional(),
+  repostOfPostId: z.string().uuid().nullable().optional(),
+});
+
+export type CreatePostRequest = z.infer<typeof createPostRequestSchema>;
+
+export const createPostResponseSchema = z.object({
+  post: postSchema,
+});
+
+export type CreatePostResponse = z.infer<typeof createPostResponseSchema>;
+
+export const getPostResponseSchema = z.object({
+  post: postSchema,
+});
+
+export type GetPostResponse = z.infer<typeof getPostResponseSchema>;
+
+export const listPostsRequestSchema = z.object({
+  authorId: z.string().uuid().optional(),
+  cursor: z.string().datetime().optional(),
+  limit: z.coerce.number().int().positive().max(50).default(20),
+});
+
+export type ListPostsRequest = z.infer<typeof listPostsRequestSchema>;
+
+export const listPostsResponseSchema = z.object({
+  posts: z.array(postSchema),
+  nextCursor: z.string().nullable(),
+});
+
+export type ListPostsResponse = z.infer<typeof listPostsResponseSchema>;
+
+export const deletePostResponseSchema = z.object({
+  post: postSchema,
+});
+
+export type DeletePostResponse = z.infer<typeof deletePostResponseSchema>;
+
 export const devicePlatformSchema = z.enum(["android", "ios"]);
 export type DevicePlatform = z.infer<typeof devicePlatformSchema>;
 

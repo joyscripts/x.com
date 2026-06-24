@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import type {
   AuthRefreshTokenResponse,
   AuthRequestOtpRequest,
@@ -16,6 +15,7 @@ import {
 } from "@/modules/auth/auth-token.service";
 import type { NotificationEventsPublisher } from "@/modules/auth/notification-events.publisher";
 import type { OtpStore } from "@/modules/auth/otp.store";
+import type { UsersClient } from "@/modules/auth/users.client";
 
 export interface AuthServicePort {
   requestOtp(input: AuthRequestOtpRequest): Promise<AuthRequestOtpResponse>;
@@ -32,12 +32,6 @@ function createOtpCode() {
   return String(Math.floor(100000 + Math.random() * 900000));
 }
 
-function createStableUserId(phoneNumber: string) {
-  const digest = createHash("sha256").update(phoneNumber).digest("hex");
-
-  return `phone_${digest.slice(0, 24)}`;
-}
-
 export class AuthService implements AuthServicePort {
   private readonly tokenService: AuthTokenService;
 
@@ -45,6 +39,7 @@ export class AuthService implements AuthServicePort {
     private readonly otpStore: OtpStore,
     private readonly sessionRepository: AuthSessionRepository,
     private readonly notificationEventsPublisher: NotificationEventsPublisher,
+    private readonly usersClient: UsersClient,
   ) {
     this.tokenService = new AuthTokenService(env.AUTH_JWT_SECRET);
   }
@@ -83,8 +78,10 @@ export class AuthService implements AuthServicePort {
       throw new AuthError("Invalid or expired OTP", 401, "INVALID_OTP");
     }
 
-    const userId = createStableUserId(input.phoneNumber);
-    const session = await this.createSession(userId, input.phoneNumber);
+    const { user } = await this.usersClient.bootstrapUser({
+      phoneNumber: input.phoneNumber,
+    });
+    const session = await this.createSession(user.id, user.phoneNumber);
 
     return {
       status: "authenticated",
