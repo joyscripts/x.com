@@ -12,7 +12,11 @@ export interface AuthSessionRepository {
   findActiveByRefreshTokenHash(
     refreshTokenHash: string,
   ): Promise<AuthSessionRow | undefined>;
+  findByRefreshTokenHash(
+    refreshTokenHash: string,
+  ): Promise<AuthSessionRow | undefined>;
   revoke(sessionId: string): Promise<void>;
+  revokeActiveForUser(userId: string): Promise<void>;
 }
 
 export class DrizzleAuthSessionRepository implements AuthSessionRepository {
@@ -22,10 +26,7 @@ export class DrizzleAuthSessionRepository implements AuthSessionRepository {
     refreshTokenHash: string;
     expiresAt: Date;
   }) {
-    const [session] = await db
-      .insert(authSessions)
-      .values(input)
-      .returning();
+    const [session] = await db.insert(authSessions).values(input).returning();
 
     return session;
   }
@@ -46,6 +47,16 @@ export class DrizzleAuthSessionRepository implements AuthSessionRepository {
     return session;
   }
 
+  async findByRefreshTokenHash(refreshTokenHash: string) {
+    const [session] = await db
+      .select()
+      .from(authSessions)
+      .where(eq(authSessions.refreshTokenHash, refreshTokenHash))
+      .limit(1);
+
+    return session;
+  }
+
   async revoke(sessionId: string) {
     await db
       .update(authSessions)
@@ -53,5 +64,16 @@ export class DrizzleAuthSessionRepository implements AuthSessionRepository {
         revokedAt: new Date(),
       })
       .where(eq(authSessions.sessionId, sessionId));
+  }
+
+  async revokeActiveForUser(userId: string) {
+    await db
+      .update(authSessions)
+      .set({
+        revokedAt: new Date(),
+      })
+      .where(
+        and(eq(authSessions.userId, userId), isNull(authSessions.revokedAt)),
+      );
   }
 }

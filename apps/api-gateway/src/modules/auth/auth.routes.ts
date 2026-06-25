@@ -11,4 +11,5 @@ export async function registerAuthRoutes(
   app.post("/auth/otp/request", controller.requestOtp);
   app.post("/auth/otp/verify", controller.verifyOtp);
   app.post("/auth/refresh", controller.refresh);
+  app.post("/auth/logout", controller.logout);
 }

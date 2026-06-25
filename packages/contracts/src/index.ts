@@ -31,9 +31,7 @@ export const authRequestOtpRequestSchema = z.object({
   otpType: otpTypeSchema,
 });
 
-export type AuthRequestOtpRequest = z.infer<
-  typeof authRequestOtpRequestSchema
->;
+export type AuthRequestOtpRequest = z.infer<typeof authRequestOtpRequestSchema>;
 
 export const authRequestOtpResponseSchema = z.object({
   status: z.literal("otp_sent"),
@@ -52,9 +50,7 @@ export const authVerifyOtpRequestSchema = z.object({
   otpCode: z.string().regex(/^\d{6}$/),
 });
 
-export type AuthVerifyOtpRequest = z.infer<
-  typeof authVerifyOtpRequestSchema
->;
+export type AuthVerifyOtpRequest = z.infer<typeof authVerifyOtpRequestSchema>;
 
 export const authSessionSchema = z.object({
   userId: z.string().min(1),
@@ -73,9 +69,7 @@ export const authVerifyOtpResponseSchema = z.object({
   session: authSessionSchema,
 });
 
-export type AuthVerifyOtpResponse = z.infer<
-  typeof authVerifyOtpResponseSchema
->;
+export type AuthVerifyOtpResponse = z.infer<typeof authVerifyOtpResponseSchema>;
 
 export const authRefreshTokenRequestSchema = z.object({
   refreshToken: z.string().min(1),
@@ -94,6 +88,18 @@ export type AuthRefreshTokenResponse = z.infer<
   typeof authRefreshTokenResponseSchema
 >;
 
+export const authLogoutRequestSchema = z.object({
+  refreshToken: z.string().min(1),
+});
+
+export type AuthLogoutRequest = z.infer<typeof authLogoutRequestSchema>;
+
+export const authLogoutResponseSchema = z.object({
+  status: z.literal("logged_out"),
+});
+
+export type AuthLogoutResponse = z.infer<typeof authLogoutResponseSchema>;
+
 export const userProfileSchema = z.object({
   id: z.string().uuid(),
   phoneNumber: phoneNumberSchema,
@@ -111,17 +117,13 @@ export const bootstrapUserRequestSchema = z.object({
   phoneNumber: phoneNumberSchema,
 });
 
-export type BootstrapUserRequest = z.infer<
-  typeof bootstrapUserRequestSchema
->;
+export type BootstrapUserRequest = z.infer<typeof bootstrapUserRequestSchema>;
 
 export const bootstrapUserResponseSchema = z.object({
   user: userProfileSchema,
 });
 
-export type BootstrapUserResponse = z.infer<
-  typeof bootstrapUserResponseSchema
->;
+export type BootstrapUserResponse = z.infer<typeof bootstrapUserResponseSchema>;
 
 export const getUserResponseSchema = z.object({
   user: userProfileSchema,
@@ -156,7 +158,136 @@ export type UpdateUserProfileResponse = z.infer<
   typeof updateUserProfileResponseSchema
 >;
 
-export const postContentSchema = z.string().trim().min(1).max(280);
+export const mediaTypeSchema = z.enum(["image", "video"]);
+export type MediaType = z.infer<typeof mediaTypeSchema>;
+
+export const mediaStatusSchema = z.enum([
+  "uploaded",
+  "processing",
+  "processed",
+  "failed",
+]);
+export type MediaStatus = z.infer<typeof mediaStatusSchema>;
+
+export const mediaVariantTypeSchema = z.enum([
+  "original",
+  "image_large",
+  "image_thumbnail",
+  "video_poster",
+  "video_mp4",
+]);
+export type MediaVariantType = z.infer<typeof mediaVariantTypeSchema>;
+
+export const mediaVariantSchema = z.object({
+  id: z.string().uuid(),
+  mediaId: z.string().uuid(),
+  variantType: mediaVariantTypeSchema,
+  mimeType: z.string().min(1),
+  sizeBytes: z.number().int().positive(),
+  width: z.number().int().positive().nullable(),
+  height: z.number().int().positive().nullable(),
+  durationMs: z.number().int().positive().nullable(),
+  storageKey: z.string().min(1),
+  url: z.string().min(1),
+  createdAt: z.string(),
+});
+
+export type MediaVariant = z.infer<typeof mediaVariantSchema>;
+
+export const mediaAssetSchema = z.object({
+  id: z.string().uuid(),
+  ownerId: z.string().uuid(),
+  mediaType: mediaTypeSchema,
+  mimeType: z.string().min(1),
+  sizeBytes: z.number().int().positive(),
+  width: z.number().int().positive().nullable(),
+  height: z.number().int().positive().nullable(),
+  durationMs: z.number().int().positive().nullable(),
+  storageKey: z.string().min(1),
+  url: z.string().min(1),
+  status: mediaStatusSchema,
+  failureReason: z.string().nullable(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+  variants: z.array(mediaVariantSchema).default([]),
+});
+
+export type MediaAsset = z.infer<typeof mediaAssetSchema>;
+
+export const uploadMediaResponseSchema = z.object({
+  media: mediaAssetSchema,
+});
+
+export type UploadMediaResponse = z.infer<typeof uploadMediaResponseSchema>;
+
+export const listMediaResponseSchema = z.object({
+  media: z.array(mediaAssetSchema),
+});
+
+export type ListMediaResponse = z.infer<typeof listMediaResponseSchema>;
+
+export const mediaUploadedEventSchema = z.object({
+  eventId: z.string().uuid(),
+  type: z.literal("media.uploaded"),
+  mediaId: z.string().uuid(),
+  ownerId: z.string().uuid(),
+  mediaType: mediaTypeSchema,
+  mimeType: z.string().min(1),
+  sizeBytes: z.number().int().positive(),
+  storageKey: z.string().min(1),
+  occurredAt: z.string().datetime(),
+});
+
+export type MediaUploadedEvent = z.infer<typeof mediaUploadedEventSchema>;
+
+export const completeMediaProcessingRequestSchema = z.object({
+  status: z.enum(["processing", "processed", "failed"]),
+  width: z.number().int().positive().nullable().optional(),
+  height: z.number().int().positive().nullable().optional(),
+  durationMs: z.number().int().positive().nullable().optional(),
+  failureReason: z.string().nullable().optional(),
+  variants: z
+    .array(
+      z.object({
+        variantType: mediaVariantTypeSchema,
+        mimeType: z.string().min(1),
+        sizeBytes: z.number().int().positive(),
+        width: z.number().int().positive().nullable().optional(),
+        height: z.number().int().positive().nullable().optional(),
+        durationMs: z.number().int().positive().nullable().optional(),
+        storageKey: z.string().min(1),
+        url: z.string().min(1),
+      }),
+    )
+    .default([]),
+});
+
+export type CompleteMediaProcessingRequest = z.infer<
+  typeof completeMediaProcessingRequestSchema
+>;
+
+export const completeMediaProcessingResponseSchema = z.object({
+  media: mediaAssetSchema,
+  variants: z.array(mediaVariantSchema),
+});
+
+export type CompleteMediaProcessingResponse = z.infer<
+  typeof completeMediaProcessingResponseSchema
+>;
+
+export const postContentSchema = z.string().trim().max(280);
+
+export const postMediaSchema = z.object({
+  id: z.string().uuid(),
+  mediaId: z.string().uuid(),
+  url: z.string().min(1),
+  mediaType: mediaTypeSchema,
+  mimeType: z.string().min(1),
+  position: z.number().int().min(0).max(3),
+  variants: z.array(mediaVariantSchema).default([]),
+});
+
+export type PostMedia = z.infer<typeof postMediaSchema>;
 
 export const postSchema = z.object({
   id: z.string().uuid(),
@@ -167,15 +298,25 @@ export const postSchema = z.object({
   createdAt: z.string(),
   updatedAt: z.string(),
   deletedAt: z.string().nullable(),
+  media: z.array(postMediaSchema),
 });
 
 export type Post = z.infer<typeof postSchema>;
 
-export const createPostRequestSchema = z.object({
-  content: postContentSchema,
-  replyToPostId: z.string().uuid().nullable().optional(),
-  repostOfPostId: z.string().uuid().nullable().optional(),
-});
+export const createPostRequestSchema = z
+  .object({
+    content: postContentSchema,
+    mediaIds: z.array(z.string().uuid()).max(4).optional(),
+    replyToPostId: z.string().uuid().nullable().optional(),
+    repostOfPostId: z.string().uuid().nullable().optional(),
+  })
+  .refine(
+    (input) => input.content.length > 0 || (input.mediaIds?.length ?? 0) > 0,
+    {
+      message: "Post must include text or media",
+      path: ["content"],
+    },
+  );
 
 export type CreatePostRequest = z.infer<typeof createPostRequestSchema>;
 

@@ -1,12 +1,16 @@
 import { z } from "zod";
 
 const envSchema = z.object({
-  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
+  NODE_ENV: z
+    .enum(["development", "test", "production"])
+    .default("development"),
   SERVICE_NAME: z.string().default("auth-service"),
   SERVICE_VERSION: z.string().default("0.0.0"),
   HOST: z.string().default("0.0.0.0"),
   PORT: z.coerce.number().int().positive().default(4001),
-  DATABASE_URL: z.string().default("postgres://postgres:postgres@localhost:5432/auth_service"),
+  DATABASE_URL: z
+    .string()
+    .default("postgres://postgres:postgres@localhost:5432/auth_service"),
   INTERNAL_SERVICE_SECRET: z.string().default("dev-internal-service-secret"),
   USER_SERVICE_URL: z.string().default("http://localhost:4002"),
   REDIS_URL: z.string().default("redis://localhost:6379"),
@@ -20,7 +24,17 @@ const envSchema = z.object({
     .positive()
     .default(60 * 60 * 24 * 30),
   OTP_TTL_SECONDS: z.coerce.number().int().positive().default(600),
-  LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),
+  OTP_RATE_LIMIT_WINDOW_SECONDS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(60 * 60),
+  OTP_PHONE_RATE_LIMIT: z.coerce.number().int().positive().default(5),
+  OTP_IP_RATE_LIMIT: z.coerce.number().int().positive().default(20),
+  OTP_DEVICE_RATE_LIMIT: z.coerce.number().int().positive().default(5),
+  LOG_LEVEL: z
+    .enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"])
+    .default("info"),
 });
 
 export const env = envSchema.parse(process.env);

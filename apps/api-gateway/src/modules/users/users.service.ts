@@ -4,6 +4,10 @@ import type {
   UpdateUserProfileResponse,
 } from "@repo/contracts";
 import {
+  DownstreamServiceError,
+  InternalHttpClient,
+} from "@/lib/internal-http-client";
+import {
   createGetUserResponseSchema,
   createUpdateUserProfileResponseSchema,
 } from "@/modules/users/schemas/users.schema";
@@ -16,41 +20,26 @@ export interface UsersGatewayServicePort {
   ): Promise<UpdateUserProfileResponse>;
 }
 
-export class DownstreamUserError extends Error {
-  constructor(
-    message: string,
-    public readonly statusCode: number,
-    public readonly payload: unknown,
-  ) {
-    super(message);
+export class DownstreamUserError extends DownstreamServiceError {
+  constructor(error: DownstreamServiceError) {
+    super(error.serviceName, error.statusCode, error.payload);
     this.name = "DownstreamUserError";
   }
 }
 
 export class HttpUsersGatewayService implements UsersGatewayServicePort {
-  constructor(
-    private readonly userServiceUrl: string,
-    private readonly internalServiceSecret: string,
-  ) {}
+  private readonly client: InternalHttpClient;
+
+  constructor(userServiceUrl: string, internalServiceSecret: string) {
+    this.client = new InternalHttpClient(
+      "User service",
+      userServiceUrl,
+      internalServiceSecret,
+    );
+  }
 
   async getById(id: string): Promise<GetUserResponse> {
-    const response = await fetch(
-      `${this.userServiceUrl.replace(/\/$/, "")}/users/${id}`,
-      {
-        headers: {
-          "x-internal-service-secret": this.internalServiceSecret,
-        },
-      },
-    );
-    const payload = await response.json().catch(() => undefined);
-
-    if (!response.ok) {
-      throw new DownstreamUserError(
-        `User service request failed with HTTP ${response.status}`,
-        response.status,
-        payload,
-      );
-    }
+    const payload = await this.request(`/users/${id}`);
 
     return createGetUserResponseSchema.parse(payload);
   }
@@ -59,27 +48,25 @@ export class HttpUsersGatewayService implements UsersGatewayServicePort {
     id: string,
     input: UpdateUserProfileRequest,
   ): Promise<UpdateUserProfileResponse> {
-    const response = await fetch(
-      `${this.userServiceUrl.replace(/\/$/, "")}/users/${id}/profile`,
-      {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          "x-internal-service-secret": this.internalServiceSecret,
-        },
-        body: JSON.stringify(input),
-      },
-    );
-    const payload = await response.json().catch(() => undefined);
-
-    if (!response.ok) {
-      throw new DownstreamUserError(
-        `User service request failed with HTTP ${response.status}`,
-        response.status,
-        payload,
-      );
-    }
+    const payload = await this.request(`/users/${id}/profile`, {
+      method: "PATCH",
+      body: input,
+    });
 
     return createUpdateUserProfileResponseSchema.parse(payload);
+  }
+
+  private async request(
+    path: string,
+    options: Parameters<InternalHttpClient["requestJson"]>[1] = {},
+  ) {
+    try {
+      return await this.client.requestJson(path, options);
+    } catch (error) {
+      if (error instanceof DownstreamServiceError) {
+        throw new DownstreamUserError(error);
+      }
+      throw error;
+    }
   }
 }

@@ -123,10 +123,12 @@ services:
       AUTH_SERVICE_URL: http://auth-service:4001
       USER_SERVICE_URL: http://user-service:4002
       POST_SERVICE_URL: http://post-service:4004
+      MEDIA_SERVICE_URL: http://media-service:4009
       INTERNAL_SERVICE_SECRET: dev-internal-service-secret
       NOTIFICATION_SERVICE_URL: http://notification-service:4006
       REDIS_URL: redis://redis:6379
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      MEDIA_EVENTS_EXCHANGE: media.events
       S3_ENDPOINT: http://minio:9000
       S3_ACCESS_KEY: minio
       S3_SECRET_KEY: minio123
@@ -314,11 +316,19 @@ services:
     restart: unless-stopped
     environment:
       RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+      MEDIA_EVENTS_EXCHANGE: media.events
+      MEDIA_EVENTS_QUEUE: media-worker.processing
+      MEDIA_EVENTS_BINDINGS: media.uploaded
+      MEDIA_SERVICE_URL: http://media-service:4009
+      INTERNAL_SERVICE_SECRET: dev-internal-service-secret
       S3_ENDPOINT: http://minio:9000
       S3_ACCESS_KEY: minio
       S3_SECRET_KEY: minio123
       S3_BUCKET: x-clone-dev
-    depends_on: *default-service-deps
+    depends_on:
+      <<: *default-service-deps
+      media-service:
+        condition: service_started
 
 volumes:
   postgres_data:

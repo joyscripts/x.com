@@ -5,6 +5,10 @@ import type {
   RegisterDeviceInstallationResponse,
 } from "@repo/contracts";
 import {
+  DownstreamServiceError,
+  InternalHttpClient,
+} from "@/lib/internal-http-client";
+import {
   createListInAppNotificationsResponseSchema,
   createMarkInAppNotificationReadResponseSchema,
 } from "@/modules/notifications/schemas/in-app-notifications.schema";
@@ -23,33 +27,23 @@ export interface NotificationRegistrationServicePort {
 }
 
 export class HttpNotificationRegistrationService implements NotificationRegistrationServicePort {
-  constructor(
-    private readonly notificationServiceUrl: string,
-    private readonly internalServiceSecret: string,
-  ) {}
+  private readonly client: InternalHttpClient;
+
+  constructor(notificationServiceUrl: string, internalServiceSecret: string) {
+    this.client = new InternalHttpClient(
+      "Notification service",
+      notificationServiceUrl,
+      internalServiceSecret,
+    );
+  }
 
   async registerDeviceInstallation(
     input: RegisterDeviceInstallationRequest,
   ): Promise<RegisterDeviceInstallationResponse> {
-    const response = await fetch(
-      `${this.notificationServiceUrl.replace(/\/$/, "")}/device-installations`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-internal-service-secret": this.internalServiceSecret,
-        },
-        body: JSON.stringify(input),
-      },
-    );
-
-    const payload = await response.json().catch(() => undefined);
-
-    if (!response.ok) {
-      throw new Error(
-        `Notification service request failed with HTTP ${response.status}: ${JSON.stringify(payload)}`,
-      );
-    }
+    const payload = await this.request("/device-installations", {
+      method: "POST",
+      body: input,
+    });
 
     return createNotificationRegistrationResponseSchema.parse(payload);
   }
@@ -57,23 +51,10 @@ export class HttpNotificationRegistrationService implements NotificationRegistra
   async listInAppNotifications(
     userId: string,
   ): Promise<ListInAppNotificationsResponse> {
-    const url = new URL(
-      `${this.notificationServiceUrl.replace(/\/$/, "")}/notifications`,
-    );
+    const url = new URL(this.client.resolveUrl("/notifications"));
     url.searchParams.set("userId", userId);
 
-    const response = await fetch(url, {
-      headers: {
-        "x-internal-service-secret": this.internalServiceSecret,
-      },
-    });
-    const payload = await response.json().catch(() => undefined);
-
-    if (!response.ok) {
-      throw new Error(
-        `Notification service request failed with HTTP ${response.status}: ${JSON.stringify(payload)}`,
-      );
-    }
+    const payload = await this.request(url);
 
     return createListInAppNotificationsResponseSchema.parse(payload);
   }
@@ -81,23 +62,27 @@ export class HttpNotificationRegistrationService implements NotificationRegistra
   async markInAppNotificationRead(
     notificationId: string,
   ): Promise<MarkInAppNotificationReadResponse> {
-    const response = await fetch(
-      `${this.notificationServiceUrl.replace(/\/$/, "")}/notifications/${notificationId}/read`,
+    const payload = await this.request(
+      `/notifications/${notificationId}/read`,
       {
         method: "POST",
-        headers: {
-          "x-internal-service-secret": this.internalServiceSecret,
-        },
       },
     );
-    const payload = await response.json().catch(() => undefined);
-
-    if (!response.ok) {
-      throw new Error(
-        `Notification service request failed with HTTP ${response.status}: ${JSON.stringify(payload)}`,
-      );
-    }
 
     return createMarkInAppNotificationReadResponseSchema.parse(payload);
+  }
+
+  private async request(
+    pathOrUrl: string | URL,
+    options: Parameters<InternalHttpClient["requestJson"]>[1] = {},
+  ) {
+    try {
+      return await this.client.requestJson(pathOrUrl, options);
+    } catch (error) {
+      if (error instanceof DownstreamServiceError) {
+        throw new Error(error.message, { cause: error });
+      }
+      throw error;
+    }
   }
 }

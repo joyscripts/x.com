@@ -13,6 +13,7 @@ import type { PostsServicePort } from "@/modules/posts/posts.service";
 
 const authorId = "9a828a4f-7c8a-4b2d-9f8e-3f5a6e8d9c10";
 const postId = "6d6d6b15-10d7-4946-905b-e5e1ab655eb8";
+const mediaId = "704b31be-dfc2-4766-917a-9716a6a23127";
 const secretHeaders = {
   "x-internal-service-secret": "dev-internal-service-secret",
 };
@@ -22,13 +23,29 @@ class FakePostsService implements PostsServicePort {
 
   async create(
     author: string,
-    input: CreatePostRequest,
+    input: CreatePostRequest & {
+      media?: Array<{
+        mediaId: string;
+        url: string;
+        mediaType: string;
+        mimeType: string;
+      }>;
+    },
   ): Promise<CreatePostResponse> {
     const post = createPost({
       authorId: author,
       content: input.content,
       replyToPostId: input.replyToPostId ?? null,
       repostOfPostId: input.repostOfPostId ?? null,
+      media: (input.media ?? []).map((media, position) => ({
+        id: `00000000-0000-4000-8000-00000000000${position}`,
+        mediaId: media.mediaId,
+        url: media.url,
+        mediaType: media.mediaType as "image" | "video",
+        mimeType: media.mimeType,
+        position,
+        variants: [],
+      })),
     });
 
     this.posts.set(post.id, post);
@@ -131,6 +148,42 @@ describe("post routes", () => {
     });
   });
 
+  it("creates a post with media attachments", async () => {
+    const postsService = new FakePostsService();
+    const app = createApp({ postsService });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/posts",
+      headers: secretHeaders,
+      payload: {
+        authorId,
+        content: "A post with media.",
+        media: [
+          {
+            mediaId,
+            url: `/media/${mediaId}/file`,
+            mediaType: "image",
+            mimeType: "image/png",
+          },
+        ],
+      },
+    });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.json()).toMatchObject({
+      post: {
+        media: [
+          {
+            mediaId,
+            position: 0,
+            mediaType: "image",
+          },
+        ],
+      },
+    });
+  });
+
   it("lists posts by author", async () => {
     const postsService = new FakePostsService();
     postsService.posts.set(postId, createPost());
@@ -188,6 +241,7 @@ function createPost(overrides: Partial<Post> = {}): Post {
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
     deletedAt: null,
+    media: [],
     ...overrides,
   };
 }

@@ -1,5 +1,6 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
+import multipart from "@fastify/multipart";
 import { env } from "@/config/env";
 import { AccessTokenService } from "@/modules/auth/access-token.service";
 import { registerAuthRoutes } from "@/modules/auth/auth.routes";
@@ -13,6 +14,11 @@ import {
   HttpNotificationRegistrationService,
   type NotificationRegistrationServicePort,
 } from "@/modules/notifications/notifications.service";
+import { registerMediaRoutes } from "@/modules/media/media.routes";
+import {
+  HttpMediaGatewayService,
+  type MediaGatewayServicePort,
+} from "@/modules/media/media.service";
 import { registerPostRoutes } from "@/modules/posts/posts.routes";
 import {
   HttpPostsGatewayService,
@@ -30,7 +36,10 @@ type CreateAppOptions = {
   accessTokenService?: AccessTokenService;
   usersService?: UsersGatewayServicePort;
   postsService?: PostsGatewayServicePort;
+  mediaService?: MediaGatewayServicePort;
 };
+
+const maxUploadBytes = 100 * 1024 * 1024;
 
 export function createApp(options: CreateAppOptions = {}) {
   const app = Fastify({
@@ -50,6 +59,12 @@ export function createApp(options: CreateAppOptions = {}) {
 
   void app.register(cors, {
     origin: true,
+  });
+  void app.register(multipart, {
+    limits: {
+      fileSize: maxUploadBytes,
+      files: 1,
+    },
   });
 
   const accessTokenService =
@@ -78,11 +93,23 @@ export function createApp(options: CreateAppOptions = {}) {
       env.POST_SERVICE_URL,
       env.INTERNAL_SERVICE_SECRET,
     );
+  const mediaService =
+    options.mediaService ??
+    new HttpMediaGatewayService(
+      env.MEDIA_SERVICE_URL,
+      env.INTERNAL_SERVICE_SECRET,
+    );
 
   void registerHealthRoutes(app);
   void registerAuthRoutes(app, authService);
   void registerUserRoutes(app, accessTokenService, usersService);
-  void registerPostRoutes(app, accessTokenService, postsService);
+  void registerPostRoutes(
+    app,
+    accessTokenService,
+    postsService,
+    mediaService,
+  );
+  void registerMediaRoutes(app, accessTokenService, mediaService);
   void registerNotificationRoutes(app, notificationRegistrationService);
 
   return app;

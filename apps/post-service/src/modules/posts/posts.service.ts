@@ -13,7 +13,14 @@ import type { PostsRepository } from "@/modules/posts/posts.repository";
 export interface PostsServicePort {
   create(
     authorId: string,
-    input: CreatePostRequest,
+    input: CreatePostRequest & {
+      media?: Array<{
+        mediaId: string;
+        url: string;
+        mediaType: string;
+        mimeType: string;
+      }>;
+    },
   ): Promise<CreatePostResponse>;
   getById(id: string): Promise<GetPostResponse | undefined>;
   list(input: ListPostsRequest): Promise<ListPostsResponse>;
@@ -25,13 +32,31 @@ export class PostsService implements PostsServicePort {
 
   async create(
     authorId: string,
-    input: CreatePostRequest,
+    input: CreatePostRequest & {
+      media?: Array<{
+        mediaId: string;
+        url: string;
+        mediaType: string;
+        mimeType: string;
+      }>;
+    },
   ): Promise<CreatePostResponse> {
+    const media = input.media ?? [];
+
+    if (media.length > 4) {
+      throw new PostsError("Posts can include up to 4 media items", 400, "POST_MEDIA_LIMIT");
+    }
+
+    if (new Set(media.map((item) => item.mediaId)).size !== media.length) {
+      throw new PostsError("Post media cannot contain duplicates", 400, "POST_MEDIA_DUPLICATE");
+    }
+
     const post = await this.repository.create({
       authorId,
       content: input.content,
       replyToPostId: input.replyToPostId ?? null,
       repostOfPostId: input.repostOfPostId ?? null,
+      media,
     });
 
     return {
@@ -62,7 +87,7 @@ export class PostsService implements PostsServicePort {
 
     return {
       posts: visiblePosts.map(toPostDto),
-      nextCursor: nextPost?.createdAt.toISOString() ?? null,
+      nextCursor: nextPost?.post.createdAt.toISOString() ?? null,
     };
   }
 
@@ -73,7 +98,7 @@ export class PostsService implements PostsServicePort {
       throw new PostsError("Post not found", 404, "POST_NOT_FOUND");
     }
 
-    if (post.authorId !== actorId) {
+    if (post.post.authorId !== actorId) {
       throw new PostsError(
         "Only the author can delete this post",
         403,

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import type {
   AuthRefreshTokenResponse,
+  AuthLogoutResponse,
   AuthRequestOtpRequest,
   AuthRequestOtpResponse,
   AuthVerifyOtpRequest,
@@ -14,6 +15,10 @@ import type { AuthSessionRepository } from "@/modules/auth/auth.repository";
 import { AuthService } from "@/modules/auth/auth.service";
 import type { NotificationEventsPublisher } from "@/modules/auth/notification-events.publisher";
 import type { ConsumeOtpResult, OtpStore } from "@/modules/auth/otp.store";
+import type {
+  RateLimitResult,
+  RateLimitStore,
+} from "@/modules/auth/rate-limit.store";
 import type { UsersClient } from "@/modules/auth/users.client";
 
 class MemoryOtpStore implements OtpStore {
@@ -83,6 +88,10 @@ class MemoryAuthSessionRepository implements AuthSessionRepository {
     return session;
   }
 
+  async findByRefreshTokenHash(refreshTokenHash: string) {
+    return this.sessions.get(refreshTokenHash);
+  }
+
   async revoke(sessionId: string) {
     for (const [refreshTokenHash, session] of this.sessions.entries()) {
       if (session.sessionId === sessionId) {
@@ -92,6 +101,36 @@ class MemoryAuthSessionRepository implements AuthSessionRepository {
         });
       }
     }
+  }
+
+  async revokeActiveForUser(userId: string) {
+    for (const [refreshTokenHash, session] of this.sessions.entries()) {
+      if (session.userId === userId && !session.revokedAt) {
+        this.sessions.set(refreshTokenHash, {
+          ...session,
+          revokedAt: new Date(),
+        });
+      }
+    }
+  }
+}
+
+class MemoryRateLimitStore implements RateLimitStore {
+  public readonly counts = new Map<string, number>();
+
+  async consume(input: {
+    key: string;
+    limit: number;
+    windowSeconds: number;
+  }): Promise<RateLimitResult> {
+    const count = (this.counts.get(input.key) ?? 0) + 1;
+    this.counts.set(input.key, count);
+
+    if (count <= input.limit) {
+      return { allowed: true };
+    }
+
+    return { allowed: false, retryAfterSeconds: input.windowSeconds };
   }
 }
 
@@ -146,9 +185,7 @@ class FakeAuthService {
     };
   }
 
-  async verifyOtp(
-    input: AuthVerifyOtpRequest,
-  ): Promise<AuthVerifyOtpResponse> {
+  async verifyOtp(input: AuthVerifyOtpRequest): Promise<AuthVerifyOtpResponse> {
     return {
       status: "authenticated",
       session: {
@@ -176,6 +213,10 @@ class FakeAuthService {
         refreshExpiresInSeconds: 2_592_000,
       },
     };
+  }
+
+  async logout(): Promise<AuthLogoutResponse> {
+    return { status: "logged_out" };
   }
 }
 
@@ -319,5 +360,181 @@ describe("auth routes", () => {
       },
     });
     expect(refreshResponse.json().session.refreshToken).not.toBe(refreshToken);
+  });
+
+  it("detects refresh token reuse and revokes active sessions", async () => {
+    const otpStore = new MemoryOtpStore();
+    const sessionRepository = new MemoryAuthSessionRepository();
+    const publisher = new FakeNotificationEventsPublisher();
+    const usersClient = new FakeUsersClient();
+    const app = createApp({
+      authService: new AuthService(
+        otpStore,
+        sessionRepository,
+        publisher,
+        usersClient,
+      ),
+    });
+
+    await app.inject({
+      method: "POST",
+      url: "/auth/otp/request",
+      headers: {
+        "x-internal-service-secret": "dev-internal-service-secret",
+      },
+      payload: {
+        phoneNumber: "+15551234567",
+        otpType: "login",
+      },
+    });
+    const verifyResponse = await app.inject({
+      method: "POST",
+      url: "/auth/otp/verify",
+      headers: {
+        "x-internal-service-secret": "dev-internal-service-secret",
+      },
+      payload: {
+        phoneNumber: "+15551234567",
+        otpType: "login",
+        otpCode: "123456",
+      },
+    });
+    const refreshToken = verifyResponse.json().session.refreshToken as string;
+
+    const refreshResponse = await app.inject({
+      method: "POST",
+      url: "/auth/refresh",
+      headers: {
+        "x-internal-service-secret": "dev-internal-service-secret",
+      },
+      payload: {
+        refreshToken,
+      },
+    });
+    const rotatedRefreshToken = refreshResponse.json().session
+      .refreshToken as string;
+
+    const reuseResponse = await app.inject({
+      method: "POST",
+      url: "/auth/refresh",
+      headers: {
+        "x-internal-service-secret": "dev-internal-service-secret",
+      },
+      payload: {
+        refreshToken,
+      },
+    });
+
+    expect(reuseResponse.statusCode).toBe(401);
+    expect(reuseResponse.json()).toMatchObject({
+      code: "REFRESH_REUSE_DETECTED",
+    });
+
+    const rotatedResponse = await app.inject({
+      method: "POST",
+      url: "/auth/refresh",
+      headers: {
+        "x-internal-service-secret": "dev-internal-service-secret",
+      },
+      payload: {
+        refreshToken: rotatedRefreshToken,
+      },
+    });
+
+    expect(rotatedResponse.statusCode).toBe(401);
+  });
+
+  it("logs out by revoking the refresh token", async () => {
+    const otpStore = new MemoryOtpStore();
+    const sessionRepository = new MemoryAuthSessionRepository();
+    const publisher = new FakeNotificationEventsPublisher();
+    const usersClient = new FakeUsersClient();
+    const app = createApp({
+      authService: new AuthService(
+        otpStore,
+        sessionRepository,
+        publisher,
+        usersClient,
+      ),
+    });
+
+    await app.inject({
+      method: "POST",
+      url: "/auth/otp/request",
+      headers: {
+        "x-internal-service-secret": "dev-internal-service-secret",
+      },
+      payload: {
+        phoneNumber: "+15551234567",
+        otpType: "login",
+      },
+    });
+    const verifyResponse = await app.inject({
+      method: "POST",
+      url: "/auth/otp/verify",
+      headers: {
+        "x-internal-service-secret": "dev-internal-service-secret",
+      },
+      payload: {
+        phoneNumber: "+15551234567",
+        otpType: "login",
+        otpCode: "123456",
+      },
+    });
+    const refreshToken = verifyResponse.json().session.refreshToken as string;
+
+    const logoutResponse = await app.inject({
+      method: "POST",
+      url: "/auth/logout",
+      headers: {
+        "x-internal-service-secret": "dev-internal-service-secret",
+      },
+      payload: {
+        refreshToken,
+      },
+    });
+
+    expect(logoutResponse.statusCode).toBe(200);
+    expect(logoutResponse.json()).toEqual({ status: "logged_out" });
+
+    const refreshResponse = await app.inject({
+      method: "POST",
+      url: "/auth/refresh",
+      headers: {
+        "x-internal-service-secret": "dev-internal-service-secret",
+      },
+      payload: {
+        refreshToken,
+      },
+    });
+
+    expect(refreshResponse.statusCode).toBe(401);
+  });
+
+  it("rate limits OTP requests by phone", async () => {
+    const authService = new AuthService(
+      new MemoryOtpStore(),
+      new MemoryAuthSessionRepository(),
+      new FakeNotificationEventsPublisher(),
+      new FakeUsersClient(),
+      new MemoryRateLimitStore(),
+    );
+
+    for (let index = 0; index < 5; index += 1) {
+      await authService.requestOtp({
+        phoneNumber: "+15551234567",
+        otpType: "login",
+      });
+    }
+
+    await expect(
+      authService.requestOtp({
+        phoneNumber: "+15551234567",
+        otpType: "login",
+      }),
+    ).rejects.toMatchObject({
+      code: "OTP_RATE_LIMITED",
+      statusCode: 429,
+    });
   });
 });

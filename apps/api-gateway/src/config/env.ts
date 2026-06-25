@@ -11,6 +11,7 @@ const envSchema = z.object({
   AUTH_SERVICE_URL: z.string().default("http://localhost:4001"),
   USER_SERVICE_URL: z.string().default("http://localhost:4002"),
   POST_SERVICE_URL: z.string().default("http://localhost:4004"),
+  MEDIA_SERVICE_URL: z.string().default("http://localhost:4009"),
   NOTIFICATION_SERVICE_URL: z.string().default("http://localhost:4006"),
   INTERNAL_SERVICE_SECRET: z.string().default("dev-internal-service-secret"),
   LOG_LEVEL: z.enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"]).default("info"),

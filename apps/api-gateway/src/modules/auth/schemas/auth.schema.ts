@@ -1,6 +1,8 @@
 import {
   authRefreshTokenRequestSchema,
   authRefreshTokenResponseSchema,
+  authLogoutRequestSchema,
+  authLogoutResponseSchema,
   authRequestOtpRequestSchema,
   authRequestOtpResponseSchema,
   authVerifyOtpRequestSchema,
@@ -13,3 +15,5 @@ export const verifyOtpRequestSchema = authVerifyOtpRequestSchema;
 export const verifyOtpResponseSchema = authVerifyOtpResponseSchema;
 export const refreshTokenRequestSchema = authRefreshTokenRequestSchema;
 export const refreshTokenResponseSchema = authRefreshTokenResponseSchema;
+export const logoutRequestSchema = authLogoutRequestSchema;
+export const logoutResponseSchema = authLogoutResponseSchema;

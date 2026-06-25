@@ -7,6 +7,10 @@ import type {
   ListPostsResponse,
 } from "@repo/contracts";
 import {
+  DownstreamServiceError,
+  InternalHttpClient,
+} from "@/lib/internal-http-client";
+import {
   createCreatePostResponseSchema,
   createDeletePostResponseSchema,
   createGetPostResponseSchema,
@@ -14,37 +18,74 @@ import {
 } from "@/modules/posts/schemas/posts.schema";
 
 export interface PostsGatewayServicePort {
-  create(authorId: string, input: CreatePostRequest): Promise<CreatePostResponse>;
+  create(
+    authorId: string,
+    input: CreatePostRequest & {
+      media?: Array<{
+        mediaId: string;
+        url: string;
+        mediaType: string;
+        mimeType: string;
+      }>;
+    },
+  ): Promise<CreatePostResponse>;
   getById(id: string): Promise<GetPostResponse>;
   list(input: ListPostsRequest): Promise<ListPostsResponse>;
   delete(id: string, actorId: string): Promise<DeletePostResponse>;
 }
 
-export class DownstreamPostError extends Error {
+export class DownstreamPostError extends DownstreamServiceError {
+  constructor(error: DownstreamServiceError);
+  constructor(message: string, statusCode: number, payload: unknown);
   constructor(
-    message: string,
-    public readonly statusCode: number,
-    public readonly payload: unknown,
+    errorOrMessage: DownstreamServiceError | string,
+    statusCode?: number,
+    payload?: unknown,
   ) {
-    super(message);
+    if (errorOrMessage instanceof DownstreamServiceError) {
+      super(
+        errorOrMessage.serviceName,
+        errorOrMessage.statusCode,
+        errorOrMessage.payload,
+      );
+    } else {
+      super("Post service", statusCode ?? 500, payload);
+      this.message = errorOrMessage;
+    }
     this.name = "DownstreamPostError";
   }
 }
 
 export class HttpPostsGatewayService implements PostsGatewayServicePort {
+  private readonly client: InternalHttpClient;
+
   constructor(
-    private readonly postServiceUrl: string,
-    private readonly internalServiceSecret: string,
-  ) {}
+    postServiceUrl: string,
+    internalServiceSecret: string,
+  ) {
+    this.client = new InternalHttpClient(
+      "Post service",
+      postServiceUrl,
+      internalServiceSecret,
+    );
+  }
 
   async create(
     authorId: string,
-    input: CreatePostRequest,
+    input: CreatePostRequest & {
+      media?: Array<{
+        mediaId: string;
+        url: string;
+        mediaType: string;
+        mimeType: string;
+      }>;
+    },
   ): Promise<CreatePostResponse> {
     const payload = await this.request("/posts", {
       method: "POST",
       body: {
         ...input,
+        mediaIds: undefined,
         authorId,
       },
     });
@@ -59,7 +100,7 @@ export class HttpPostsGatewayService implements PostsGatewayServicePort {
   }
 
   async list(input: ListPostsRequest): Promise<ListPostsResponse> {
-    const url = new URL(`${this.baseUrl}/posts`);
+    const url = new URL(this.client.resolveUrl("/posts"));
 
     if (input.authorId) {
       url.searchParams.set("authorId", input.authorId);
@@ -87,10 +128,6 @@ export class HttpPostsGatewayService implements PostsGatewayServicePort {
     return createDeletePostResponseSchema.parse(payload);
   }
 
-  private get baseUrl() {
-    return this.postServiceUrl.replace(/\/$/, "");
-  }
-
   private async request(
     pathOrUrl: string | URL,
     options: {
@@ -98,29 +135,13 @@ export class HttpPostsGatewayService implements PostsGatewayServicePort {
       body?: unknown;
     } = {},
   ) {
-    const url =
-      pathOrUrl instanceof URL
-        ? pathOrUrl
-        : `${this.baseUrl}${pathOrUrl}`;
-    const response = await fetch(url, {
-      method: options.method,
-      headers: {
-        "Content-Type": "application/json",
-        "x-internal-service-secret": this.internalServiceSecret,
-      },
-      body:
-        options.body === undefined ? undefined : JSON.stringify(options.body),
-    });
-    const payload = await response.json().catch(() => undefined);
-
-    if (!response.ok) {
-      throw new DownstreamPostError(
-        `Post service request failed with HTTP ${response.status}`,
-        response.status,
-        payload,
-      );
+    try {
+      return await this.client.requestJson(pathOrUrl, options);
+    } catch (error) {
+      if (error instanceof DownstreamServiceError) {
+        throw new DownstreamPostError(error);
+      }
+      throw error;
     }
-
-    return payload;
   }
 }

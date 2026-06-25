@@ -6,6 +6,7 @@ import {
 } from "@/modules/auth/auth.service";
 import {
   refreshTokenRequestSchema,
+  logoutRequestSchema,
   requestOtpRequestSchema,
   verifyOtpRequestSchema,
 } from "@/modules/auth/schemas/auth.schema";
@@ -16,7 +17,10 @@ export class AuthController {
   requestOtp = async (request: FastifyRequest, reply: FastifyReply) => {
     try {
       const payload = requestOtpRequestSchema.parse(request.body);
-      const response = await this.authService.requestOtp(payload);
+      const response = await this.authService.requestOtp(payload, {
+        ipAddress: getClientIp(request),
+        deviceId: getHeader(request, "x-device-id"),
+      });
 
       return reply.status(202).send(response);
     } catch (error) {
@@ -31,7 +35,12 @@ export class AuthController {
 
       return reply.status(200).send(response);
     } catch (error) {
-      return this.handleError(error, request, reply, "Invalid OTP verification");
+      return this.handleError(
+        error,
+        request,
+        reply,
+        "Invalid OTP verification",
+      );
     }
   };
 
@@ -43,6 +52,17 @@ export class AuthController {
       return reply.status(200).send(response);
     } catch (error) {
       return this.handleError(error, request, reply, "Invalid token refresh");
+    }
+  };
+
+  logout = async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const payload = logoutRequestSchema.parse(request.body);
+      const response = await this.authService.logout(payload);
+
+      return reply.status(200).send(response);
+    } catch (error) {
+      return this.handleError(error, request, reply, "Invalid logout request");
     }
   };
 
@@ -65,9 +85,11 @@ export class AuthController {
           ? error.statusCode
           : 502;
 
-      return reply.status(statusCode).send(error.payload ?? {
-        message: "Auth service request failed",
-      });
+      return reply.status(statusCode).send(
+        error.payload ?? {
+          message: "Auth service request failed",
+        },
+      );
     }
 
     request.log.error(error, "Gateway auth request failed");
@@ -75,4 +97,16 @@ export class AuthController {
       message: "Gateway auth request failed",
     });
   }
+}
+
+function getClientIp(request: FastifyRequest) {
+  const forwardedFor = getHeader(request, "x-forwarded-for");
+
+  return forwardedFor?.split(",")[0]?.trim() || request.ip;
+}
+
+function getHeader(request: FastifyRequest, name: string) {
+  const value = request.headers[name];
+
+  return Array.isArray(value) ? value[0] : value;
 }

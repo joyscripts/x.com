@@ -1,6 +1,12 @@
-import { Pressable, Text, View } from "react-native";
+import { Image, Linking, Pressable, Text, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import type { Post, UserProfile } from "@repo/contracts";
+import type {
+  MediaVariantType,
+  Post,
+  PostMedia,
+  UserProfile,
+} from "@repo/contracts";
+import { resolveMediaUrl } from "@/lib/media";
 
 type PostCardProps = {
   post: Post;
@@ -9,9 +15,7 @@ type PostCardProps = {
 
 export function PostCard({ post, currentUser }: PostCardProps) {
   const isCurrentUserPost = currentUser?.id === post.authorId;
-  const displayName = isCurrentUserPost
-    ? currentUser.displayName
-    : "X user";
+  const displayName = isCurrentUserPost ? currentUser.displayName : "X user";
   const handle = isCurrentUserPost
     ? currentUser.handle
     : post.authorId.slice(0, 8);
@@ -69,10 +73,7 @@ export function PostCard({ post, currentUser }: PostCardProps) {
               @{handle}
             </Text>
             <Text style={{ color: "#71767B", fontSize: 15 }}>·</Text>
-            <Text
-              selectable
-              style={{ color: "#71767B", fontSize: 15 }}
-            >
+            <Text selectable style={{ color: "#71767B", fontSize: 15 }}>
               {formatPostTime(post.createdAt)}
             </Text>
           </View>
@@ -87,6 +88,69 @@ export function PostCard({ post, currentUser }: PostCardProps) {
           >
             {post.content}
           </Text>
+
+          {post.media.length > 0 ? (
+            <View
+              style={{
+                flexDirection: "row",
+                flexWrap: "wrap",
+                gap: 2,
+                overflow: "hidden",
+                borderWidth: 1,
+                borderColor: "#2F3336",
+                borderRadius: 8,
+                borderCurve: "continuous",
+              }}
+            >
+              {post.media.map((media) => {
+                const thumbnailUrl = pickMediaVariantUrl(
+                  media,
+                  "image_thumbnail",
+                );
+                const posterUrl = pickMediaVariantUrl(media, "video_poster");
+                const playbackUrl = pickMediaVariantUrl(media, "video_mp4");
+
+                return media.mediaType === "image" ? (
+                  <Image
+                    key={media.id}
+                    source={{ uri: resolveMediaUrl(thumbnailUrl ?? media.url) }}
+                    style={{
+                      aspectRatio: post.media.length === 1 ? 16 / 10 : 1,
+                      width: post.media.length === 1 ? "100%" : "49.7%",
+                      backgroundColor: "#16181C",
+                    }}
+                  />
+                ) : (
+                  <Pressable
+                    key={media.id}
+                    onPress={() => {
+                      const url = resolveMediaUrl(playbackUrl ?? media.url);
+                      void Linking.openURL(url);
+                    }}
+                    style={{
+                      aspectRatio: 16 / 10,
+                      width: "100%",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      backgroundColor: "#16181C",
+                    }}
+                  >
+                    {posterUrl ? (
+                      <Image
+                        source={{ uri: resolveMediaUrl(posterUrl) }}
+                        style={{
+                          height: "100%",
+                          position: "absolute",
+                          width: "100%",
+                        }}
+                      />
+                    ) : null}
+                    <Ionicons name="play-circle" size={42} color="#E7E9EA" />
+                  </Pressable>
+                );
+              })}
+            </View>
+          ) : null}
 
           <View
             style={{
@@ -108,6 +172,11 @@ export function PostCard({ post, currentUser }: PostCardProps) {
   );
 }
 
+function pickMediaVariantUrl(media: PostMedia, variantType: MediaVariantType) {
+  return media.variants?.find((variant) => variant.variantType === variantType)
+    ?.url;
+}
+
 function PostAction({ icon }: { icon: keyof typeof Ionicons.glyphMap }) {
   return (
     <Pressable
@@ -126,7 +195,10 @@ function PostAction({ icon }: { icon: keyof typeof Ionicons.glyphMap }) {
 
 function formatPostTime(value: string) {
   const createdAt = new Date(value);
-  const diffSeconds = Math.max(1, Math.floor((Date.now() - createdAt.getTime()) / 1000));
+  const diffSeconds = Math.max(
+    1,
+    Math.floor((Date.now() - createdAt.getTime()) / 1000),
+  );
 
   if (diffSeconds < 60) {
     return `${diffSeconds}s`;

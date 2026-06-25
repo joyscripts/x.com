@@ -1,6 +1,8 @@
-FROM golang:1.24-alpine
+FROM golang:1.25-alpine
 
 WORKDIR /app
+
+RUN apk add --no-cache ca-certificates ffmpeg
 
 COPY services/media-worker-go ./
 

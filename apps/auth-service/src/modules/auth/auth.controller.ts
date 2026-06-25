@@ -5,6 +5,8 @@ import type { AuthServicePort } from "@/modules/auth/auth.service";
 import {
   refreshTokenRequestSchema,
   refreshTokenResponseSchema,
+  logoutRequestSchema,
+  logoutResponseSchema,
   requestOtpRequestSchema,
   requestOtpResponseSchema,
   verifyOtpRequestSchema,
@@ -18,7 +20,10 @@ export class AuthController {
     try {
       const payload = requestOtpRequestSchema.parse(request.body);
       const response = requestOtpResponseSchema.parse(
-        await this.authService.requestOtp(payload),
+        await this.authService.requestOtp(payload, {
+          ipAddress: getHeader(request, "x-client-ip") ?? request.ip,
+          deviceId: getHeader(request, "x-device-id"),
+        }),
       );
 
       return reply.status(202).send(response);
@@ -36,7 +41,12 @@ export class AuthController {
 
       return reply.status(200).send(response);
     } catch (error) {
-      return this.handleError(error, request, reply, "Invalid OTP verification");
+      return this.handleError(
+        error,
+        request,
+        reply,
+        "Invalid OTP verification",
+      );
     }
   };
 
@@ -50,6 +60,19 @@ export class AuthController {
       return reply.status(200).send(response);
     } catch (error) {
       return this.handleError(error, request, reply, "Invalid token refresh");
+    }
+  };
+
+  logout = async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      const payload = logoutRequestSchema.parse(request.body);
+      const response = logoutResponseSchema.parse(
+        await this.authService.logout(payload.refreshToken),
+      );
+
+      return reply.status(200).send(response);
+    } catch (error) {
+      return this.handleError(error, request, reply, "Invalid logout request");
     }
   };
 
@@ -78,4 +101,10 @@ export class AuthController {
       message: "Auth request failed",
     });
   }
+}
+
+function getHeader(request: FastifyRequest, name: string) {
+  const value = request.headers[name];
+
+  return Array.isArray(value) ? value[0] : value;
 }
