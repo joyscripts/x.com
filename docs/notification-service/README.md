@@ -110,7 +110,7 @@ The next step is to make the notification event consumer as reliable as the medi
 
 ## Files worth looking at
 
-- `packages/contracts/src/index.ts`
+- `packages/contracts/src/notifications.ts`
 - `apps/notification-service/src/server.ts`
 - `apps/notification-service/src/modules/notification-events/`
 - `apps/notification-service/src/modules/notification-channels/push/fcm-push.provider.ts`

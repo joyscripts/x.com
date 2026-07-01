@@ -217,7 +217,19 @@ If you cannot write that sentence clearly, the boundary is not clear yet.
 
 ### Step 2: Decide if a shared contract is needed
 
-Use `packages/contracts/src/index.ts` for request/response/event shapes that cross service or client boundaries.
+Use the domain files in `packages/contracts/src/` for request/response/event shapes that cross service or client boundaries. `packages/contracts/src/index.ts` is only the public barrel export.
+
+Current contract files:
+
+```text
+packages/contracts/src/common.ts
+packages/contracts/src/health.ts
+packages/contracts/src/auth.ts
+packages/contracts/src/users.ts
+packages/contracts/src/media.ts
+packages/contracts/src/posts.ts
+packages/contracts/src/notifications.ts
+```
 
 Add contracts when:
 
@@ -422,7 +434,7 @@ Use this when adding a new RabbitMQ-backed flow.
 
 ### Step 1: Define the event contract
 
-Add event shape in `packages/contracts/src/index.ts`.
+Add event shapes in the matching domain file under `packages/contracts/src/`. For example, post events belong in `posts.ts`, media events belong in `media.ts`, and notification events belong in `notifications.ts`.
 
 Every domain event should usually have:
 
@@ -594,7 +606,7 @@ Gateway uses access token user ID as the actor. Do not trust a client-sent `foll
 
 ### Contracts
 
-Add to `packages/contracts/src/index.ts`:
+Add to a new `packages/contracts/src/social-graph.ts` file and export it from `packages/contracts/src/index.ts`:
 
 ```text
 followUserRequestSchema
@@ -658,6 +670,7 @@ The notification service already has a `user.followed` definition, so this is a 
 ### Files to touch
 
 ```text
+packages/contracts/src/social-graph.ts
 packages/contracts/src/index.ts
 apps/social-graph-service/src/db/schema/index.ts
 apps/social-graph-service/src/modules/relationships/
@@ -779,7 +792,7 @@ On delete:
 ### Files to touch
 
 ```text
-packages/contracts/src/index.ts
+packages/contracts/src/posts.ts
 apps/post-service/src/db/schema/index.ts
 apps/post-service/src/modules/posts/posts.repository.ts
 apps/post-service/src/modules/posts/posts.service.ts
@@ -893,6 +906,7 @@ timelineItemSchema
 ### Files to touch
 
 ```text
+packages/contracts/src/timeline.ts
 packages/contracts/src/index.ts
 apps/timeline-service/src/modules/timeline/
 apps/timeline-service/src/modules/post-events/
