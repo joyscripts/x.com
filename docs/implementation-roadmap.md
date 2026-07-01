@@ -1,300 +1,268 @@
-# X Clone Microservices Implementation Roadmap
+# X Clone Implementation Roadmap
 
-## 1. Purpose
+Last audited: 2026-07-01
 
-This is the build order note for the repo.
+This roadmap is the build sequence for the repo. For a point-in-time checklist of what exists now, use `progress-tracker.md`.
 
-The roadmap is still intentionally **microservice-first** because the point is to learn:
+The project is still intentionally microservice-first because the learning goals are service decomposition, service communication, event-driven workflows, distributed caching, observability, and load testing.
 
-- service decomposition
-- service communication
-- event-driven architecture
-- distributed caching
-- observability
-- load testing and scaling behavior
+## Current Baseline
 
-## 2. Phase 0: Platform Foundation
+The repo is past the initial skeleton stage.
 
-Goal: create the platform skeleton before product features.
+Implemented or partially implemented:
 
-Tasks:
+- Yarn/Turbo monorepo with shared contracts/config packages.
+- Fastify-based Node services for gateway, auth, user, social graph, post, timeline, notification, search, admin, and media.
+- Docker Compose infrastructure for Postgres, Redis, RabbitMQ, MinIO, OpenSearch, and app containers.
+- Health checks and focused tests across all services.
+- Auth OTP/session flow with Redis OTP storage/rate limits, JWT access tokens, refresh-token rotation, user bootstrap, and notification event publishing.
+- User profile bootstrap/read/update.
+- Post create/list/get/soft-delete with media attachments.
+- Media upload/storage, media metadata, event outbox, Go media worker processing, retries, and DLQ.
+- Notification device registration, RabbitMQ consumer, in-app notifications, delivery records, FCM push path, and log SMS/email providers.
+- Expo app with auth/profile/compose/home-media slices.
+- Vite dashboard scaffold.
 
-- choose `NestJS` or `Fastify` standard for Node services
-- create `api-gateway`
-- create `auth-service`
-- create `user-service`
-- create `post-service`
-- create `social-graph-service`
-- create `timeline-service`
-- create `notification-service`
-- create `search-service`
-- create `admin-service`
-- create `mobile` with Expo
-- create `dashboard` with React + Vite
-- create `media-worker` in Go
-
-Infra tasks:
-
-- Docker Compose for all dependencies
-- Postgres
-- Redis
-- RabbitMQ
-- MinIO or local S3-compatible storage
-- OpenSearch
-- Prometheus + Grafana
-
-Deliverables:
-
-- all services boot locally
-- service discovery via local hostnames
-- health checks
-- basic tracing/logging
-
-## 3. Phase 1: Contracts and Communication
-
-Goal: define how services talk before heavy feature work.
-
-Tasks:
-
-- define REST conventions
-- define event naming conventions
-- define correlation ID strategy
-- define auth propagation strategy
-- define shared error format
-- define retry and DLQ policy
-- define idempotency strategy
-
-Deliverables:
-
-- service contract docs
-- event catalog
-- request tracing works across services
-
-## 4. Phase 2: Auth and Identity
-
-Goal: users can sign in and exist in the platform.
-
-Tasks:
-
-- OTP request API
-- OTP verify API
-- dev-mode console OTP logging
-- MSG91 provider adapter
-- user creation event
-- session/refresh token model
-- user profile bootstrap
-- auth rate limiting with Redis
-
-Services involved:
-
-- `api-gateway`
-- `auth-service`
-- `user-service`
-- `notification-service`
-
-Deliverables:
-
-- login/signup works from mobile
-- new user profile is created through service interaction
-
-## 5. Phase 3: Social Graph
-
-Goal: users can follow each other.
-
-Tasks:
-
-- follow/unfollow APIs
-- block/mute APIs
-- follower/following counts
-- graph events
-- graph read endpoints for timeline targeting
-
-Services involved:
+Still only scaffolded:
 
 - `social-graph-service`
-- `user-service`
-- `notification-service`
-
-Deliverables:
-
-- graph relationships work
-- follow notification flow works
-
-## 6. Phase 4: Post Creation
-
-Goal: core posting flow becomes real.
-
-Tasks:
-
-- create post
-- reply
-- repost
-- quote post
-- delete post
-- post read endpoints
-- publish `post.created`
-
-Services involved:
-
-- `post-service`
 - `timeline-service`
 - `search-service`
-- `notification-service`
+- `admin-service`
+
+## Phase 0: Platform Foundation
+
+Status: mostly done.
+
+Completed:
+
+- Chose Fastify for Node services.
+- Created `api-gateway`, `auth-service`, `user-service`, `post-service`, `social-graph-service`, `timeline-service`, `notification-service`, `search-service`, `admin-service`, `media-service`, Expo mobile app, React/Vite dashboard, and Go media worker.
+- Added Docker Compose for Postgres, Redis, RabbitMQ, MinIO, OpenSearch, OpenSearch Dashboards, app containers, and worker.
+- Added service health checks and baseline tests.
+- Added shared Zod contracts in `packages/contracts`.
+
+Remaining:
+
+- Add request/correlation ID propagation.
+- Add OpenTelemetry, Prometheus/Grafana, and log aggregation.
+- Decide whether service-owned databases remain separate DBs on one local Postgres server or move toward schemas/clusters per environment.
+
+## Phase 1: Contracts and Communication
+
+Status: partial.
+
+Completed:
+
+- Shared contract schemas exist for health, auth, users, media, posts, device installations, notifications, and notification events.
+- Gateway-to-service calls use explicit HTTP clients and an internal service secret.
+- RabbitMQ is wired for auth OTP notification events and media processing events.
+- Media worker has retry and DLQ queues.
+
+Remaining:
+
+- Write an event catalog with routing keys, producers, consumers, and idempotency keys.
+- Standardize error response format across all services.
+- Add correlation ID propagation across gateway, service calls, events, and worker logs.
+- Define retry/DLQ policy for each event family, not only media.
+- Add idempotency strategy for event consumers and mutating APIs.
+
+## Phase 2: Auth and Identity
+
+Status: partial and usable for local flows.
+
+Completed:
+
+- OTP request and verify APIs.
+- Redis OTP storage with TTL and attempt consumption.
+- Redis OTP rate limiting by phone, IP, and device when context exists.
+- Session table, JWT access tokens, refresh tokens, rotation, reuse detection, and logout.
+- Auth service bootstraps users through user-service.
+- Gateway auth routes and mobile session hooks.
+- OTP notification events published to RabbitMQ.
+
+Remaining:
+
+- Add real provider wiring/configuration for production SMS such as MSG91.
+- Add account/session management endpoints.
+- Add admin auth and role model.
+- Add audit logs for security-sensitive auth events.
+- Replace any test-user notification targeting with authenticated user IDs everywhere.
+
+## Phase 3: User Profiles
+
+Status: partial.
+
+Completed:
+
+- User bootstrap by phone number.
+- Get user by ID.
+- Update profile handle/display name/bio/avatar URL.
+- Gateway `/me` and `/me/profile` routes.
+- Mobile profile setup screen.
+
+Remaining:
+
+- Add public profile routes and profile screen.
+- Add avatar upload integration with media-service.
+- Add user settings/privacy fields.
+- Emit `user.created` and `user.profile.updated` events.
+- Add profile search read model once search-service is active.
+
+## Phase 4: Social Graph
+
+Status: scaffold only.
+
+Completed:
+
+- Service package, Docker wiring, DB client, config, health route, and health tests.
+
+Remaining:
+
+- Follow/unfollow APIs.
+- Block/mute APIs.
+- Follower/following counts.
+- Graph read endpoints for timeline fanout targeting.
+- `user.followed`/`user.unfollowed` events.
+- Follow notification flow through notification-service.
+
+## Phase 5: Post Creation
+
+Status: partial and usable for local post creation.
+
+Completed:
+
+- Create post.
+- List posts globally or by author.
+- Get post by ID.
+- Soft delete owned post.
+- Reply/repost reference columns.
+- Media attachment table with position and uniqueness constraints.
+- Gateway routes and mobile compose flow.
+
+Remaining:
+
+- Publish `post.created` and `post.deleted`.
+- Implement repost and quote-post behavior as first-class product flows.
+- Add likes, bookmarks, reply listing, and counters.
+- Add edit flow if desired.
+- Add moderation/visibility states.
+- Connect post events to timeline, search, and notifications.
+
+## Phase 6: Media Pipeline
+
+Status: partial with a working upload/process foundation.
+
+Completed:
+
+- Gateway media upload and streaming routes.
+- Media service stores originals in S3-compatible storage and metadata in Postgres.
+- Media variants and media event outbox tables.
+- `media.uploaded` event shape.
+- Go worker consumes RabbitMQ, processes images/videos, writes variants, updates media-service, retries, and DLQs failures.
+- Posts can attach uploaded media.
+
+Remaining:
+
+- Add presigned/direct upload flow so API servers do not carry file bodies.
+- Add reliable outbox dispatcher lifecycle and monitoring.
+- Add media quotas, file validation, antivirus/safety checks, and cleanup.
+- Add CDN-ready URL strategy.
+- Add user-facing processing states in the mobile app.
+
+## Phase 7: Notifications
+
+Status: partial.
+
+Completed:
+
+- Device installation registration.
+- In-app notification storage and read API.
+- Notification delivery records.
+- RabbitMQ consumer for notification events.
+- Notification definitions for `rabbitmq.ping`, `auth.otp.requested`, and `user.followed`.
+- Channel fanout across in-app, push, SMS, and email handlers.
+- FCM push provider plus log SMS/email providers.
+- Gateway notification routes.
+
+Remaining:
+
+- Add notification preferences.
+- Add full retry/DLQ strategy for notification event handling.
+- Add explicit processed-event idempotency ledger if unique notification rows are not enough.
+- Add notification inbox UI polish.
+- Add real SMS/email provider adapters.
+- Add product producers for follow/like/reply/post events.
+
+## Phase 8: Timeline Service
+
+Status: scaffold only.
+
+Remaining:
+
+- Implement cached home timeline endpoint.
+- Consume `post.created` and graph events.
+- Implement fanout-on-write for normal users.
+- Implement fanout-on-read path for high-follower users.
+- Use Redis for timeline references and pagination.
+- Hydrate timeline posts through post-service or a dedicated read model.
+- Add load-testable celebrity-post strategy.
+
+## Phase 9: Search and Moderation
+
+Status: scaffold only.
+
+Remaining search work:
+
+- Consume user/post events.
+- Index users/posts/hashtags into OpenSearch.
+- Add search query endpoints.
+- Add gateway and mobile search screens.
+
+Remaining moderation/admin work:
+
+- Abuse report APIs.
+- Review queues.
+- Moderation actions.
+- Admin roles/permissions.
+- Audit logs.
+- Real dashboard workflows.
+
+## Phase 10: Observability and Load Testing
+
+Status: planned.
+
+Load tests to add:
+
+- Concurrent OTP requests.
+- Concurrent post creation.
+- Timeline-heavy reads.
+- Notification bursts.
+- Celebrity post fanout.
+- Image/video upload bursts.
+
+Metrics to collect:
+
+- p50/p95/p99 latency.
+- Queue depth and event lag.
+- DB CPU and slow queries.
+- Redis hit ratio.
+- Worker throughput.
+- Failure rate by service.
 
 Deliverables:
 
-- user can create and interact with posts
-- downstream event flow works
+- Repeatable load-test scripts.
+- Bottleneck report.
+- Scaling plan.
+- Architecture lessons learned.
 
-## 7. Phase 5: Media Pipeline
+## Build Priority From Here
 
-Goal: support media without overloading APIs.
-
-Tasks:
-
-- media upload session creation
-- presigned upload flow
-- object storage integration
-- media metadata persistence
-- Go image processing worker
-- Go video processing worker
-- media processed events
-
-Services involved:
-
-- `media-service`
-- `media-worker`
-- `post-service`
-
-Deliverables:
-
-- user can upload media and attach it to posts
-
-## 8. Phase 6: Timeline Service
-
-Goal: home feed becomes fast and scalable.
-
-Tasks:
-
-- implement cached home timeline
-- implement fanout-on-write for normal users
-- implement fanout-on-read path for high-follower users
-- Redis timeline cache
-- pagination model
-- feed hydration strategy
-
-Deliverables:
-
-- timeline reads are fast
-- celebrity-post strategy is testable
-
-## 9. Phase 7: Notifications
-
-Goal: make the platform reactive and channel-aware.
-
-Tasks:
-
-- in-app notification storage
-- SMS notifications
-- push token registration
-- push provider integration
-- notification preferences
-- template engine
-- delivery retry and DLQ handling
-
-Deliverables:
-
-- follow/like/reply/login OTP notifications work
-
-## 10. Phase 8: Search and Moderation
-
-Goal: platform becomes discoverable and manageable.
-
-Tasks:
-
-- OpenSearch indexing
-- search query endpoints
-- user/post/hashtag search
-- abuse report APIs
-- moderation workflows
-- admin audit logs
-
-Deliverables:
-
-- search works
-- moderation workflows exist
-
-## 11. Phase 9: Load Testing and Scale Experiments
-
-Goal: learn how the architecture behaves under stress.
-
-Tests:
-
-- concurrent OTP requests
-- concurrent post creation
-- timeline-heavy reads
-- notification burst
-- celebrity post event
-- image/video upload burst
-
-What to measure:
-
-- p50/p95/p99 latency
-- queue depth
-- DB CPU
-- Redis hit ratio
-- event lag
-- worker throughput
-- failure rate by service
-
-Deliverables:
-
-- bottleneck report
-- service scaling plan
-- architecture lessons learned
-
-## 12. Suggested Learning Sequence
-
-If you want maximum educational value, focus on these concepts in order:
-
-1. API gateway and auth propagation
-2. service-owned databases
-3. synchronous service calls
-4. async events and retries
-5. eventual consistency
-6. cache strategy
-7. observability
-8. load testing
-9. autoscaling and failure handling
-
-## 13. What You Will Learn Better Than in a Modular Monolith
-
-- where distributed latency appears
-- why retries and idempotency matter
-- why observability is mandatory
-- why shared databases are dangerous
-- why async workflows help scale
-- why service boundaries are hard to get right
-
-## 14. What to Be Careful About
-
-- too many synchronous cross-service calls in one request
-- shared tables across services
-- missing correlation IDs
-- no dead-letter queues
-- no idempotency on event consumers
-- putting business logic in the gateway
-
-## 15. Final Build Advice
-
-This project should teach you real microservice architecture, not just service naming.
-
-So your success criteria should be:
-
-- services are independently deployable
-- they communicate through clear APIs/events
-- failures are observable
-- async workflows are reliable
-- load tests reveal meaningful scaling behavior
-
-That is the kind of project that will genuinely level up your system design skills.
+1. Finish social graph MVP.
+2. Add post and user domain events.
+3. Build timeline MVP on top of graph and post events.
+4. Build search indexing/query MVP.
+5. Add observability before serious load testing.
+6. Expand admin/moderation after the core social loop is event-driven.

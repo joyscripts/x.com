@@ -67,6 +67,8 @@ This starts:
 - `admin-service`
 - `media-service`
 
+This command does not start the Go media worker. For the worker, either use full Docker mode or run it separately from `services/media-worker-go` after RabbitMQ, MinIO, and media-service are available.
+
 ### 3. Run client apps on your machine
 
 In a separate terminal:
@@ -152,7 +154,7 @@ docker compose down -v
 
 ## Notes About Mobile
 
-The Expo app is scaffolded in the repo, but running Expo directly on your machine is usually better than containerizing it for daily development.
+The Expo app is implemented enough for auth/profile/post/media/notification development, but running Expo directly on your machine is usually better than containerizing it for daily development.
 
 That is why the root Compose file does not include a mobile container.
 

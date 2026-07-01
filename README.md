@@ -14,6 +14,8 @@ This repository is being used to build an X-like social platform with:
 - [Project Brief](./docs/project-brief.md)
 - [System Design](./docs/system-design.md)
 - [Implementation Roadmap](./docs/implementation-roadmap.md)
+- [Implementation Guide for Monolith Developers](./docs/implementation-guide-for-monolith-devs.md)
+- [Progress Tracker](./docs/progress-tracker.md)
 - [Dev Workflow](./docs/dev-workflow.md)
 - [Secrets Guide](./docs/secrets.md)
 

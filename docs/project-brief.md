@@ -84,7 +84,7 @@ Current recommended services:
 - `notification-service`
 - `media-service`
 - `search-service`
-- `admin-moderation-service`
+- `admin-service`
 - `Go media workers`
 
 ## Architectural Principles
@@ -172,7 +172,10 @@ If a future session changes a major decision, update this file so the repo remai
 
 At this stage:
 
-- architecture exploration is active
-- microservice-first design is preferred
-- implementation has not yet been finalized
-- more detailed service contracts, event catalogs, schemas, and delivery plans still need to be defined
+- microservice-first implementation is active
+- the repo has a working monorepo/service foundation
+- auth, user, post, media, notification, gateway, mobile, and worker slices are partially implemented
+- social graph, timeline, search, and admin are still mostly service scaffolds
+- service contracts and schemas exist in `packages/contracts`, but the event catalog, correlation strategy, observability plan, and load-test workflows still need to be completed
+
+For the current implementation checklist, see [Progress Tracker](./progress-tracker.md).

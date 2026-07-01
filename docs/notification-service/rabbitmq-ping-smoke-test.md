@@ -50,7 +50,7 @@ yarn infra:up
 
 That gives us Postgres and RabbitMQ locally.
 
-### 2. Make sure the notification table exists
+### 2. Make sure the notification tables exist
 
 From the repo root:
 
@@ -58,7 +58,7 @@ From the repo root:
 yarn workspace @x-clone/notification-service db:push
 ```
 
-Right now this service only needs the `device_installations` table for the smoke test.
+The notification service now uses `device_installations`, `notifications`, and `notification_deliveries`.
 
 ### 3. Mobile env vars
 
@@ -253,7 +253,7 @@ In that case I would re-register the app, confirm the token changed, and try the
 ## What I would do right after this works
 
 1. persist a notification row before sending push
-2. add a read API for the app inbox
-3. add idempotency on consumed events
-4. add a retry / DLQ story
-5. switch from test-user env wiring to real authenticated user ids
+2. add idempotency on consumed events
+3. add a retry / DLQ story
+4. switch from test-user env wiring to real authenticated user ids
+5. wire follow/reply/like producers into this same notification path

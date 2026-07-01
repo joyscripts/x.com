@@ -1,371 +1,279 @@
 # X Clone Microservices System Design
 
-## 1. Goal
+Last audited: 2026-07-01
 
-This is the system design note I am using to keep the architecture straight while the repo grows.
+This document describes the intended architecture and calls out what is implemented today. For the checklist view, see `progress-tracker.md`.
 
-The target is still to build an X-like social platform as a **microservices-based system** for both:
+## Goal
+
+Build an X-like social platform as a microservices-based system for:
 
 - product delivery
-- hands-on learning of distributed architecture
-- load testing and scale experimentation
+- hands-on distributed-systems learning
+- load testing and scale experiments
 
-Target stack:
+The target stack remains:
 
-- `Node.js` for core APIs and orchestration-heavy services
-- `Go` for media and CPU-heavy pipelines
-- `PostgreSQL` for durable data
-- `Redis` for cache, rate limits, ephemeral state, and some queue support
-- `React + Vite` for the admin/dashboard
-- `Expo + React Native` for the mobile app
+- Node.js and Fastify for core APIs.
+- Go for CPU-heavy media processing.
+- PostgreSQL for durable service-owned data.
+- Redis for OTPs, rate limits, cache, and future timeline hot paths.
+- RabbitMQ for events and work queues.
+- MinIO/S3-compatible storage for media.
+- OpenSearch for future search.
+- Expo/React Native for mobile.
+- React/Vite for dashboard/admin.
 
-Target scale:
+Target scale is still a path toward `100k concurrent users`, but the current repo is an early-to-mid implementation, not a production system.
 
-- design with a path toward `100k concurrent users`
+## Current Architecture Reality
 
-This document assumes you **want microservices on purpose**, not because they are automatically better.
+Implemented now:
 
-## 2. Important Reality Check
+- API gateway as the public backend entry point.
+- Internal Fastify services protected by `INTERNAL_SERVICE_SECRET` for non-health routes where feature routes exist.
+- Separate service databases configured through separate Postgres database URLs in local Docker Compose.
+- Shared Zod contract package for DTO/event shapes.
+- RabbitMQ event paths for auth OTP notifications and media processing.
+- MinIO media storage and Go media processing worker.
+- Notification service with in-app, push, SMS-log, and email-log channel handlers.
 
-Microservices do **not** magically give scalability by themselves.
+Not implemented yet:
 
-What they actually give you is:
+- Social graph business APIs.
+- Timeline/feed generation.
+- Search indexing and query APIs.
+- Admin/moderation workflows.
+- Full observability stack.
+- Production-grade event catalog, idempotency, and retry policy across every event family.
 
-- isolated deployments
-- independent scaling per service
-- failure isolation
-- clearer ownership boundaries
-- technology flexibility
-
-What they cost you:
-
-- network calls instead of in-process calls
-- harder debugging
-- eventual consistency
-- more infrastructure
-- more observability requirements
-- harder local development
-
-So if you are doing this to learn, that is a very good reason. Just make sure you learn the tradeoffs too, not only the benefits.
-
-## 3. Recommended Learning-First Microservice Style
-
-Do **not** build 20 tiny services.
-
-Instead, build **domain-sized microservices**:
-
-1. `api-gateway`
-2. `auth-service`
-3. `user-service`
-4. `social-graph-service`
-5. `post-service`
-6. `timeline-service`
-7. `notification-service`
-8. `media-service`
-9. `search-service`
-10. `admin-moderation-service`
-
-Then add supporting infrastructure:
-
-- `Redis`
-- `PostgreSQL`
-- `queue/event bus`
-- `object storage`
-- `OpenSearch`
-- `observability stack`
-
-This is enough to teach you the real microservice patterns without becoming a distributed mess.
-
-## 4. High-Level Architecture
+## High-Level Architecture
 
 ```mermaid
 flowchart LR
-    A["Mobile App (Expo)"] --> G["API Gateway / BFF"]
-    B["Dashboard (React + Vite)"] --> G
+    M["Mobile App (Expo)"] --> G["API Gateway"]
+    D["Dashboard (Vite/React)"] --> G
 
-    G --> AU["Auth Service"]
-    G --> US["User Service"]
-    G --> SG["Social Graph Service"]
-    G --> PS["Post Service"]
-    G --> TL["Timeline Service"]
-    G --> NS["Notification Service"]
-    G --> MS["Media Service"]
-    G --> SS["Search Service"]
-    G --> AD["Admin / Moderation Service"]
+    G --> A["Auth Service"]
+    G --> U["User Service"]
+    G --> P["Post Service"]
+    G --> ME["Media Service"]
+    G --> N["Notification Service"]
 
-    AU --> AUDB["Postgres"]
-    US --> USDB["Postgres"]
-    SG --> SGDB["Postgres"]
-    PS --> PSDB["Postgres"]
-    TL --> TLR["Redis"]
-    NS --> NSDB["Postgres"]
-    MS --> OBJ["S3 / Object Storage"]
-    SS --> OSP["OpenSearch"]
-    AD --> ADDB["Postgres"]
+    G -. "planned" .-> SG["Social Graph Service"]
+    G -. "planned" .-> T["Timeline Service"]
+    G -. "planned" .-> S["Search Service"]
+    G -. "planned" .-> AD["Admin Service"]
 
-    AU --> BUS["Event Bus / Queue"]
-    US --> BUS
-    SG --> BUS
-    PS --> BUS
-    MS --> BUS
-    TL --> BUS
-    NS --> BUS
-    AD --> BUS
+    A --> ADB["auth_service DB"]
+    U --> UDB["user_service DB"]
+    P --> PDB["post_service DB"]
+    ME --> MEDB["media_service DB"]
+    N --> NDB["notification_service DB"]
 
-    BUS --> W1["Fanout Workers"]
-    BUS --> W2["Notification Workers"]
-    BUS --> W3["Search Index Workers"]
-    BUS --> W4["Analytics / Audit Workers"]
-    BUS --> GO["Go Media Processing Workers"]
+    A --> R["Redis"]
+    A --> MQ["RabbitMQ"]
+    ME --> OBJ["MinIO / S3"]
+    ME --> MQ
+    N --> MQ
+    W["Go Media Worker"] --> MQ
+    W --> OBJ
+    W --> ME
 
-    W2 --> MSG["MSG91 / Push / Email"]
+    S -. "planned indexing" .-> OS["OpenSearch"]
+    T -. "planned cache" .-> R
 ```
 
-## 5. Industry-Oriented Architecture Recommendation
+## Service Design
 
-If the goal is a serious social platform, a good industry-style structure is:
+### API Gateway
 
-- synchronous request path kept thin
-- asynchronous event-driven processing for expensive side effects
-- each service owns its own data
-- shared infrastructure, not shared service internals
+Current responsibilities:
 
-That means:
+- Public auth routes: OTP request/verify, refresh, logout.
+- Current user routes: `/me`, `/me/profile`.
+- Post routes: create/list/get/delete.
+- Media routes: upload, list by ID, stream original/variants.
+- Notification routes: device installation registration, in-app list/read.
+- JWT access-token validation for protected public routes.
+- Internal HTTP forwarding with `INTERNAL_SERVICE_SECRET`.
 
-- APIs call the service responsible for the requested action
-- services publish events when state changes
-- downstream services react asynchronously
+Remaining responsibilities:
 
-Example:
+- Social graph, timeline, search, and admin route exposure.
+- Edge rate limiting.
+- Correlation ID propagation.
+- More careful response aggregation where client screens need multiple sources.
 
-- `post-service` creates a post
-- emits `post.created`
-- `timeline-service` fans out timeline references
-- `search-service` indexes the post
-- `notification-service` sends notifications if needed
+### Auth Service
 
-That is the microservice pattern you should learn early.
+Current responsibilities:
 
-## 6. Service-by-Service Design
+- OTP request/verify.
+- Redis OTP TTL storage and attempts.
+- Redis OTP rate limiting.
+- JWT access tokens.
+- Refresh-token sessions, rotation, reuse detection, and logout.
+- User bootstrap through user-service.
+- Publish OTP notification events to RabbitMQ.
 
-## 6.1 API Gateway
+Remaining responsibilities:
 
-Responsibilities:
+- Real production SMS provider integration such as MSG91.
+- Admin auth/roles.
+- Account/session management endpoints.
+- Security audit events.
 
-- single entry point for mobile and dashboard
-- auth verification
-- request routing
-- response aggregation where necessary
-- rate limiting at the edge
-- versioning
+### User Service
 
-Why it exists:
+Current responsibilities:
 
-- clients should not know every internal service directly
-- central place for auth, throttling, and cross-cutting concerns
+- Bootstrap user profile by phone number.
+- Read user by ID.
+- Update handle, display name, bio, and avatar URL.
+- Own `users` table.
 
-Suggested stack:
+Remaining responsibilities:
 
-- `Node.js`
-- `Fastify` or `NestJS`
-- optional `Envoy` or `NGINX` in front later
+- Public profile reads.
+- Avatar upload flow.
+- Settings/privacy fields.
+- User lifecycle events.
+- Profile search integration.
 
-## 6.2 Auth Service
+### Post Service
 
-Responsibilities:
+Current responsibilities:
 
-- signup/login
-- phone OTP
-- refresh token lifecycle
-- device/session management
-- admin auth
+- Own canonical post storage.
+- Create, list, get, and soft-delete posts.
+- Store reply/repost references.
+- Store post media references and enforce basic media limits.
 
-Data:
+Remaining responsibilities:
 
-- users auth credentials
-- sessions
-- OTP challenges
+- Publish post domain events.
+- Full repost/quote/like/bookmark/reply behavior.
+- Counters and visibility/moderation states.
+- Timeline/search/notification integration.
 
-Notes:
+### Media Service and Go Worker
 
-- production OTP via `MSG91`
-- development mode logs OTP to console
-- store OTP challenge state in Redis with TTL
+Current responsibilities:
 
-Why separate it:
+- Accept uploads through the gateway.
+- Store originals in MinIO/S3-compatible storage.
+- Persist media assets, variants, and event outbox records.
+- Stream original and variant files.
+- Let Go worker consume `media.uploaded`, process images/videos, upload variants, and report processing status.
+- Use RabbitMQ retry and dead-letter handling in the worker.
 
-- auth is security-sensitive
-- rate limiting and abuse controls are special
-- easier to harden independently
+Remaining responsibilities:
 
-## 6.3 User Service
+- Direct presigned upload flow.
+- Reliable outbox dispatcher lifecycle and visibility.
+- CDN-ready URL strategy.
+- Media safety checks, quotas, and cleanup.
+- Processing state UI.
 
-Responsibilities:
+### Notification Service
 
-- user profile
-- avatar reference
-- bio
-- settings
-- privacy flags
+Current responsibilities:
 
-Why separate it from auth:
+- Own device installations, notifications, and delivery records.
+- Register device installations.
+- List and mark in-app notifications read.
+- Consume RabbitMQ notification events.
+- Resolve notification definitions and fan out to channels.
+- Support in-app, FCM push, SMS-log, and email-log channels.
 
-- auth lifecycle and profile lifecycle evolve differently
-- easier to keep security logic isolated
+Remaining responsibilities:
 
-## 6.4 Social Graph Service
+- Notification preferences.
+- Retry/DLQ strategy for notification events.
+- Stronger idempotency tracking.
+- Real SMS/email providers.
+- Product event producers for follow/like/reply flows.
 
-Responsibilities:
+### Social Graph Service
 
-- follow/unfollow
-- followers/following counts
-- blocks
-- mutes
+Current status: scaffold.
 
-Why separate it:
+Planned responsibilities:
 
-- graph data is hot and highly connected
-- it becomes a core dependency for feed generation and recommendations
+- Follow/unfollow.
+- Block/mute.
+- Follower/following counts.
+- Follower targeting APIs for timeline fanout.
+- Graph events such as `user.followed`.
 
-## 6.5 Post Service
+### Timeline Service
 
-Responsibilities:
+Current status: scaffold.
 
-- create/edit/delete posts
-- replies
-- reposts
-- quote posts
-- post metadata
-- post-media references
+Planned responsibilities:
 
-Why separate it:
+- Home timeline reads.
+- Redis-backed timeline cache.
+- Fanout-on-write for normal users.
+- Fanout-on-read for large accounts.
+- Post hydration strategy.
+- Feed pagination and ranking hooks.
 
-- post creation is the center of the domain
-- it emits important downstream events
+### Search Service
 
-Important rule:
+Current status: scaffold.
 
-- this service stores the canonical post
-- downstream services must not invent their own truth for the post body
+Planned responsibilities:
 
-## 6.6 Timeline Service
+- Consume user/post events.
+- Index users, posts, and hashtags into OpenSearch.
+- Serve search query endpoints.
+- Hide OpenSearch internals from the rest of the system.
 
-Responsibilities:
+### Admin Service and Dashboard
 
-- home timeline assembly
-- timeline caching
-- hybrid fanout strategy
-- feed ranking hooks
+Current status: scaffold.
 
-Why separate it:
+Planned responsibilities:
 
-- timelines are a read-optimized concern
-- feed generation changes independently from post storage
+- Abuse reports.
+- Moderation queues and actions.
+- Admin roles.
+- Audit logs.
+- Dashboard APIs and UI workflows.
 
-This is one of the most important scalability services in the whole system.
+## Communication Patterns
 
-## 6.7 Notification Service
+### Synchronous HTTP
 
-Responsibilities:
+Current use:
 
-- in-app notifications
-- push notifications
-- SMS notifications
-- email later if needed
-- user notification preferences
-- template rendering
-- retries and delivery records
+- Gateway to auth/user/post/media/notification services.
+- Auth service to user-service for user bootstrap.
+- Go media worker to media-service for processing updates.
 
-Why separate it:
+Rules:
 
-- provider integrations fail in different ways
-- retries and idempotency matter
-- channel routing should not live in product services
+- Clients talk to the gateway, not directly to internal services.
+- Services should not write into another service's database.
+- Gateway should route and compose, not own core business logic.
 
-## 6.8 Media Service
+### Asynchronous Events
 
-Responsibilities:
+Current use:
 
-- upload orchestration
-- presigned upload URLs
-- media metadata
-- storage lifecycle
-- processing status
+- Auth service publishes OTP notification events.
+- Notification service consumes notification events.
+- Media service publishes `media.uploaded`.
+- Go worker consumes media events and handles retry/DLQ.
 
-Go workers handle:
-
-- image resizing
-- video transcoding
-- thumbnails
-- metadata extraction
-
-Why separate it:
-
-- media is operationally very different from normal API traffic
-- large files and CPU-heavy jobs need different scaling
-
-## 6.9 Search Service
-
-Responsibilities:
-
-- indexing posts and users
-- search query endpoints
-- ranking/tuning hooks
-
-Why separate it:
-
-- search infra and query patterns are distinct
-- OpenSearch should not leak across the rest of the system
-
-## 6.10 Admin / Moderation Service
-
-Responsibilities:
-
-- abuse reports
-- review queues
-- moderation actions
-- audit logs
-- admin dashboards
-
-Why separate it:
-
-- platform safety must be auditable
-- admin permissions should be tightly controlled
-
-## 7. Communication Patterns
-
-Use **both** synchronous and asynchronous communication.
-
-## 7.1 Synchronous
-
-Use HTTP/gRPC for:
-
-- immediate request/response behavior
-- fetching data the client needs now
-- authorization checks
-
-Examples:
-
-- gateway to auth-service
-- gateway to post-service
-- timeline-service to social-graph-service for specific reads if necessary
-
-## 7.2 Asynchronous
-
-Use queue/event bus for:
-
-- timeline fanout
-- search indexing
-- notifications
-- audit trails
-- analytics
-- media processing
-
-Examples of domain events:
+Planned events:
 
 - `user.created`
 - `user.profile.updated`
 - `user.followed`
+- `user.unfollowed`
 - `post.created`
 - `post.deleted`
 - `post.liked`
@@ -374,386 +282,135 @@ Examples of domain events:
 - `notification.requested`
 - `report.created`
 
-## 8. Event Bus Recommendation
+The next design task is to write an event catalog that names producer, consumer, routing key, schema, idempotency key, retry policy, and DLQ behavior for each event.
 
-Since you want to learn microservices seriously, choose one of these paths:
+## Data Ownership
 
-### Option A: RabbitMQ
+Local development uses one Postgres container with separate databases per service:
 
-Best if you want to learn:
+- `api_gateway`
+- `auth_service`
+- `user_service`
+- `social_graph_service`
+- `post_service`
+- `timeline_service`
+- `notification_service`
+- `search_service`
+- `admin_service`
+- `media_service`
 
-- routing
-- retries
-- DLQs
-- work queues
-- event consumers
+Rules:
 
-Good for your current project.
+- A service owns its own tables.
+- Cross-service reads happen through APIs or events.
+- Direct cross-service table writes are not allowed.
+- Shared contracts can define DTOs/events, but should not become shared business logic.
 
-### Option B: Kafka
-
-Best if you want to learn:
-
-- event streaming
-- consumer groups
-- durable replay
-- analytics/event-driven pipelines
-
-But:
-
-- much heavier operationally
-- more complex for a first large project
-
-### My recommendation
-
-Start with:
-
-- `RabbitMQ` for service events and work queues
-
-Reason:
-
-- it teaches real distributed messaging
-- easier to operate than Kafka
-- very suitable for notifications, fanout, and media processing jobs
-
-## 9. Database Strategy
-
-For a true microservice architecture, each service should **own its own database schema**.
-
-That does not always mean a completely separate physical Postgres cluster at first.
-
-A realistic learning setup is:
-
-- one Postgres server
-- separate databases or schemas per service
-
-Example:
-
-- `auth_db`
-- `user_db`
-- `graph_db`
-- `post_db`
-- `notification_db`
-- `admin_db`
-
-Why:
-
-- you learn ownership boundaries
-- you avoid direct table coupling
-- you can still run locally without huge infra cost
-
-Important rule:
-
-- one service never writes directly into another service's tables
-
-That rule matters more than whether the physical server is shared.
-
-## 10. Redis Strategy
-
-Use Redis for:
-
-- OTP TTL storage
-- rate limiting
-- session acceleration
-- timeline cache
-- hot counters if needed
-- idempotency keys
-- distributed locks sparingly
-
-Do not use Redis as the permanent source of truth for core social data.
-
-## 11. Media Pipeline
+## Media Pipeline
 
 ```mermaid
 sequenceDiagram
     participant C as Client
     participant GW as API Gateway
     participant MS as Media Service
-    participant S3 as Object Storage
+    participant S3 as MinIO/S3
     participant MQ as RabbitMQ
-    participant GO as Go Worker
+    participant W as Go Worker
     participant PS as Post Service
 
-    C->>GW: request upload
-    GW->>MS: create upload session
-    MS-->>C: presigned URL
-    C->>S3: upload original media
-    C->>GW: confirm upload
-    GW->>MS: mark uploaded
+    C->>GW: upload media
+    GW->>MS: POST /media/uploads
+    MS->>S3: store original
+    MS->>MS: save media asset and outbox row
     MS->>MQ: publish media.uploaded
-    MQ->>GO: process media
-    GO->>S3: save variants
-    GO->>MS: update processing result
-    C->>GW: create post with media reference
-    GW->>PS: create post
+    W->>MQ: consume media.uploaded
+    W->>S3: download original and upload variants
+    W->>MS: PATCH /media/:id/processing
+    C->>GW: create post with mediaIds
+    GW->>MS: validate media IDs
+    GW->>PS: create post with media refs
 ```
 
-Why this design is strong:
+Current caveat: upload currently passes through the gateway/service as request payload. The target design is a presigned/direct upload flow.
 
-- API servers do not stream giant files
-- media processing is decoupled
-- Go workers scale independently
+## Timeline Strategy
 
-## 12. Timeline Strategy
-
-Timeline is where scalability lessons become real.
-
-Use a **hybrid timeline system**:
+The intended strategy is still hybrid:
 
 - fanout-on-write for regular users
-- fanout-on-read for celebrity/high-follower accounts
+- fanout-on-read for high-follower accounts
 
-### Why
+Current status: not implemented beyond the timeline service scaffold.
 
-If every post from a huge creator is pushed to millions of followers immediately, write amplification becomes painful.
-
-But if you build every user's feed from scratch on every request, reads become painful.
-
-So the hybrid model gives you:
-
-- fast reads for most users
-- protection from explosive writes for very large accounts
-
-### Timeline data flow
+Planned flow:
 
 ```mermaid
 sequenceDiagram
     participant PS as Post Service
     participant MQ as RabbitMQ
     participant TL as Timeline Service
-    participant G as Graph Service
+    participant SG as Social Graph Service
     participant R as Redis
 
     PS->>MQ: post.created
     MQ->>TL: consume event
-    TL->>G: fetch follower targeting rules
-    TL->>R: fanout refs to cached timelines
+    TL->>SG: fetch follower targeting rules
+    TL->>R: write timeline refs
 ```
 
-## 13. Notification Architecture
+## Notification Architecture
 
 ```mermaid
 flowchart LR
-    A["Auth/Post/Graph Services"] --> B["notification.requested"]
-    B --> MQ["RabbitMQ"]
+    P["Product/Auth Services"] --> E["notification events"]
+    E --> MQ["RabbitMQ"]
     MQ --> N["Notification Service"]
-    N --> P["Preference Check"]
-    N --> T["Template Rendering"]
-    N --> R["Retry / Idempotency"]
-    N --> I["In-App"]
-    N --> S["MSG91 SMS"]
-    N --> U["Push Provider"]
+    N --> I["In-App Store"]
+    N --> F["FCM Push"]
+    N --> SMS["SMS Provider / Log Provider"]
+    N --> EM["Email Provider / Log Provider"]
+    N --> D["Delivery Records"]
 ```
 
-Why this matters:
+Current implementation already supports the internal event consumer, in-app persistence, delivery records, FCM push, and log SMS/email providers. Preferences, retries, DLQ handling, and real SMS/email providers are still future work.
 
-- product services only request notifications
-- notification-service owns delivery logic
-- failures are isolated
-- retries do not leak into product APIs
+## Observability
 
-## 14. Scalability Discussion
+Current status: basic service logs only.
 
-## What microservices improve
+Required before serious load testing:
 
-- you can scale timeline-service without scaling auth-service
-- media workers can scale independently from post APIs
-- a notification spike does not require scaling every backend
-- deployments affect smaller surfaces
+- request IDs at gateway entry
+- correlation IDs through internal HTTP and RabbitMQ messages
+- OpenTelemetry traces
+- service metrics
+- queue depth and consumer lag dashboards
+- DB slow query visibility
+- structured error reporting
 
-## What microservices do not automatically solve
+## Load Testing Plan
 
-- bad database queries
-- poor timeline strategy
-- missing caching
-- lack of backpressure
-- bad event design
+Scenarios to build:
 
-The biggest scalability wins in social apps usually come from:
+- OTP storm.
+- Post creation burst.
+- Timeline read pressure.
+- Celebrity post fanout.
+- Notification spike.
+- Media ingestion and processing burst.
 
-- cache design
-- async processing
-- storage strategy
-- feed architecture
-- indexing and search architecture
+Tools:
 
-Microservices help when those concerns need independent scaling and isolation.
+- k6 or Locust for HTTP load.
+- Prometheus/Grafana for metrics once observability is added.
+- RabbitMQ management metrics for queue behavior.
 
-## 15. Load Testing Plan
+## Service Boundary Rules
 
-Since learning through load testing is one of your goals, test these scenarios:
-
-### Scenario 1: OTP storm
-
-- many concurrent login requests
-- validate Redis rate limiting
-- validate MSG91 isolation
-
-### Scenario 2: Post creation burst
-
-- many users posting at once
-- validate post-service latency
-- validate event bus throughput
-
-### Scenario 3: Timeline read pressure
-
-- many users refreshing the home feed
-- validate Redis hit ratio
-- validate timeline-service latency
-
-### Scenario 4: Celebrity post
-
-- one large user posts
-- validate fanout strategy
-- compare write amplification vs read assembly
-
-### Scenario 5: Notification spike
-
-- reply/like/follow storms
-- validate notification queue backlog
-- validate retry behavior
-
-### Scenario 6: Media ingestion
-
-- many concurrent image/video uploads
-- validate object storage flow
-- validate Go worker throughput
-
-Suggested tools:
-
-- `k6`
-- `Locust`
-- `Grafana`
-- `Prometheus`
-
-## 16. Observability Stack
-
-You cannot properly learn microservices without observability.
-
-Use:
-
-- `OpenTelemetry`
-- `Prometheus`
-- `Grafana`
-- `Loki` or ELK
-- `Sentry`
-
-You should be able to answer:
-
-- which service is slow
-- which queue is backed up
-- which event is failing
-- how long timeline generation takes
-- how long media processing takes
-
-Without that, microservices become guesswork.
-
-## 17. Suggested Tech Choices
-
-## Backend services
-
-Choose one of these:
-
-- `NestJS` for structured service code
-- `Fastify` for lightweight high-performance services
-
-### My recommendation
-
-For your learning objective:
-
-- `NestJS` for most Node services
-- `Go` for media workers
-
-Why:
-
-- NestJS makes boundaries, modules, DTOs, and service structure easier to keep clean
-- you will learn architecture patterns faster
-
-## Infra choices
-
-- `RabbitMQ` for async messaging
-- `PostgreSQL`
-- `Redis`
-- `OpenSearch`
-- `S3-compatible object storage`
-- `Docker Compose` for local development
-- `Kubernetes` later if you want orchestration learning
-
-## 18. Monorepo Layout
-
-```text
-apps/
-  api-gateway/
-  auth-service/
-  user-service/
-  social-graph-service/
-  post-service/
-  timeline-service/
-  notification-service/
-  search-service/
-  admin-service/
-  mobile/
-  dashboard/
-  docs/
-
-services/
-  media-service/          # Go API/orchestrator if separate
-  media-worker/           # Go workers
-
-packages/
-  contracts/              # shared DTOs/events only, keep minimal
-  config/
-  observability/
-  ui/
-  eslint-config/
-  typescript-config/
-
-infra/
-  docker/
-  rabbitmq/
-  postgres/
-  redis/
-  opensearch/
-  monitoring/
-
-docs/
-  system-design.md
-  implementation-roadmap.md
-```
-
-## 19. Service Boundary Rules
-
-To make this a real microservice architecture, follow these rules:
-
-1. each service owns its schema/data
-2. no direct table access across services
-3. all service APIs are explicit
-4. side effects happen through events where possible
-5. each service is deployable independently
-6. each service has health checks, logs, metrics, and tracing
-
-If you break these rules, you may have many repos/apps but not real microservices.
-
-## 20. Final Recommendation
-
-If your goal is to learn microservices deeply, this project is a good fit.
-
-The best version of that learning journey is:
-
-- use domain-sized services, not tiny services
-- use RabbitMQ early
-- keep separate service-owned schemas
-- rely on events for side effects
-- put serious effort into observability
-- load test the system and compare bottlenecks
-
-That will teach you:
-
-- service boundaries
-- synchronous vs asynchronous design
-- eventual consistency
-- failure isolation
-- scaling behavior
-- operational complexity
-
-And that is the real value of microservice architecture.
+1. Each service owns its data.
+2. No direct writes to another service's tables.
+3. API gateway stays thin.
+4. Cross-service side effects should prefer events.
+5. Event consumers must become idempotent.
+6. Every production-grade async flow needs retry and DLQ behavior.
+7. Observability is part of the architecture, not a later polish task.

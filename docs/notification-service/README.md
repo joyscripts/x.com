@@ -2,15 +2,16 @@
 
 These are my working notes for the notification service so I do not have to keep re-deriving the shape every time I touch it.
 
-Right now the goal is not "build the whole notifications product". The goal is to get the first clean loop working:
+The first queue-to-device loop has grown into a small notification platform slice:
 
 - mobile registers an FCM token through `api-gateway`
 - `notification-service` listens to RabbitMQ
-- a `rabbitmq.ping` event lands in the queue
-- `notification-service` turns that into a push
-- the phone receives it
+- notification events land in the queue
+- `notification-service` resolves a notification definition
+- the service fans out to in-app, push, SMS-log, or email-log channels
+- delivery attempts are recorded
 
-That gives us a real vertical slice without baking product-specific logic into the first pass.
+`rabbitmq.ping` still exists as a smoke-test event, but the service also handles real notification-style envelopes such as `auth.otp.requested` and `user.followed`.
 
 ## Current shape
 
@@ -19,9 +20,9 @@ I want the notification service to have two entry points:
 - synchronous HTTP for things the app needs directly
 - asynchronous event consumption for side effects
 
-For now the HTTP side is only doing device installation registration.
-That public call should go through the gateway instead of hitting the service directly.
-The event side is where the test flow lives.
+The HTTP side currently supports device installation registration, in-app notification listing, and marking in-app notifications read. Public calls should go through the gateway instead of hitting the service directly.
+
+The event side consumes RabbitMQ notification events and routes them through channel handlers.
 
 ## What belongs here
 
@@ -31,8 +32,9 @@ The event side is where the test flow lives.
 - notification channel routing
 - template rendering
 - delivery provider integration
+- delivery records
+- in-app notification persistence
 - retries / dead letters later
-- in-app notification persistence later
 
 It should not own the original product action.
 
@@ -83,9 +85,12 @@ Minimal flow that now exists:
 - `notification-service` stores that token in `device_installations`
 - `notification-service` starts a RabbitMQ consumer on boot
 - consumer listens on `notification.events`
-- queue bindings default to `rabbitmq.ping,notification.requested`
-- `rabbitmq.ping` is rendered into a simple push title/body
-- push goes through Firebase Admin and FCM
+- queue bindings default to `rabbitmq.ping,notification.requested,auth.otp.requested`
+- events are resolved through notification definitions
+- in-app notifications are stored when the event requests `in_app`
+- delivery attempts are stored in `notification_deliveries`
+- push goes through Firebase Admin and FCM when the event requests `push`
+- SMS and email currently use log providers
 
 Important detail:
 
@@ -95,30 +100,27 @@ Important detail:
 
 ## What is intentionally not built yet
 
-- in-app notifications table
-- read/unread APIs
-- delivery records
-- retries and DLQ handling
+- notification preferences
+- retries and DLQ handling for notification events
+- explicit processed-event ledger beyond current uniqueness constraints
 - preference checks
-- provider fanout beyond FCM
+- real SMS/email providers
 
-I do not want to mix all of that into the first queue-to-device test.
+The next step is to make the notification event consumer as reliable as the media worker path.
 
 ## Files worth looking at
 
 - `packages/contracts/src/index.ts`
 - `apps/notification-service/src/server.ts`
 - `apps/notification-service/src/modules/notification-events/`
-- `apps/notification-service/src/modules/push/fcm-push.provider.ts`
+- `apps/notification-service/src/modules/notification-channels/push/fcm-push.provider.ts`
 - `apps/x-clone-app/hooks/use-device-push-token.ts`
 - `apps/x-clone-app/lib/device-installations.ts`
 
 ## Next steps after the smoke test is green
 
-1. add a real `notifications` table
-2. persist an in-app notification record before push delivery
-3. add `GET /notifications`
-4. add read/unread state
-5. add idempotency with processed event IDs
-6. add retries + DLQ
-7. stop relying on `EXPO_PUBLIC_NOTIFICATION_TEST_USER_ID`
+1. add idempotency with processed event IDs
+2. add retries + DLQ
+3. add notification preferences
+4. wire real product producers for follow/reply/like flows
+5. stop relying on `EXPO_PUBLIC_NOTIFICATION_TEST_USER_ID`
